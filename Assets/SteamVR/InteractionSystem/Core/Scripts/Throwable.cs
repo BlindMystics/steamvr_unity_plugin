@@ -169,8 +169,14 @@ namespace Valve.VR.InteractionSystem
 
             GetReleaseVelocities(hand, out velocity, out angularVelocity);
 
-            rigidbody.velocity = velocity;
-            rigidbody.angularVelocity = angularVelocity;
+            if (NoNans(velocity) && NoNans(angularVelocity)) {
+                rigidbody.velocity = velocity;
+                rigidbody.angularVelocity = angularVelocity;
+            }
+        }
+
+        private bool NoNans(Vector3 vector3) {
+            return !(float.IsNaN(vector3.x) || float.IsNaN(vector3.y) || float.IsNaN(vector3.z));
         }
 
 
@@ -179,10 +185,11 @@ namespace Valve.VR.InteractionSystem
             if (hand.noSteamVRFallbackCamera && releaseVelocityStyle != ReleaseStyle.NoChange)
                 releaseVelocityStyle = ReleaseStyle.ShortEstimation; // only type that works with fallback hand is short estimation.
 
+            velocityEstimator.FinishEstimatingVelocity();
+
             switch (releaseVelocityStyle)
             {
                 case ReleaseStyle.ShortEstimation:
-                    velocityEstimator.FinishEstimatingVelocity();
                     velocity = velocityEstimator.GetVelocityEstimate();
                     angularVelocity = velocityEstimator.GetAngularVelocityEstimate();
                     break;

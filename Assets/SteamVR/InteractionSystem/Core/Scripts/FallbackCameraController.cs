@@ -22,14 +22,14 @@ namespace Valve.VR.InteractionSystem
 		private float realTime;
 
 		//-------------------------------------------------
-		void OnEnable()
+		protected virtual void OnEnable()
 		{
 			realTime = Time.realtimeSinceStartup;
 		}
 
 
 		//-------------------------------------------------
-		void Update()
+		protected virtual void Update()
 		{
 			float forward = 0.0f;
 			if ( Input.GetKey( KeyCode.W ) || Input.GetKey( KeyCode.UpArrow ) )

@@ -7,15 +7,43 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System;
+
+public interface ISteamVrInitialised {
+    void OnSteamVrInitialised();
+}
 
 namespace Valve.VR.InteractionSystem
 {
-	//-------------------------------------------------------------------------
-	// Singleton representing the local VR player/user, with methods for getting
-	// the player's hands, head, tracking origin, and guesses for various properties.
-	//-------------------------------------------------------------------------
-	public class Player : MonoBehaviour
-	{
+    //-------------------------------------------------------------------------
+    // Singleton representing the local VR player/user, with methods for getting
+    // the player's hands, head, tracking origin, and guesses for various properties.
+    //-------------------------------------------------------------------------
+    public class Player : MonoBehaviour {
+
+        public class InitialsedEventSteamVrHandler : GameObjectEvent<ISteamVrInitialised> {
+
+            bool initialisationComplete = false;
+
+            protected override void OnListenerAdded(ISteamVrInitialised newListener) {
+                base.OnListenerAdded(newListener);
+                if (initialisationComplete) {
+                    newListener.OnSteamVrInitialised();
+                }
+            }
+
+            public void NotifyInitialisationComplete() {
+                initialisationComplete = true;
+                base.ForEach(listener => listener.OnSteamVrInitialised());
+            }
+
+            public override void ForEach(Action<ISteamVrInitialised> action) {
+                throw new UnityException("This event handler shouldn't be used this way, call specific functions instead.");
+            }
+        }
+
+        public static InitialsedEventSteamVrHandler steamVrInitialisedEvent = new InitialsedEventSteamVrHandler();
+
 		[Tooltip( "Virtual transform corresponding to the meatspace tracking origin. Devices are tracked relative to this." )]
 		public Transform trackingOriginTransform;
 
@@ -41,6 +69,9 @@ namespace Valve.VR.InteractionSystem
         public SteamVR_Action_Boolean headsetOnHead = SteamVR_Input.GetBooleanAction("HeadsetOnHead");
 
 		public bool allowToggleTo2D = true;
+
+        [Tooltip( "The estimated body collider for the player." )]
+        public BodyCollider bodyCollider;
 
 
 		//-------------------------------------------------
@@ -105,6 +136,20 @@ namespace Valve.VR.InteractionSystem
 
 			return null;
 		}
+
+        public Hand GetHand(SteamVR_Input_Sources handType) {
+            for (int j = 0; j < hands.Length; j++) {
+                if (!hands[j].gameObject.activeInHierarchy) {
+                    continue;
+                }
+
+                if (hands[j].handType == handType) {
+                    return hands[j];
+                }
+            }
+
+            return null;
+        }
 
 
 		//-------------------------------------------------
@@ -277,6 +322,8 @@ namespace Valve.VR.InteractionSystem
 				ActivateRig( rig2DFallback );
 #endif
 			}
+
+            steamVrInitialisedEvent.NotifyInitialisationComplete();
         }
 
         protected virtual void Update()

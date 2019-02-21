@@ -46,6 +46,7 @@ namespace Valve.VR.InteractionSystem
         {
             if (handPrefab != null)
             {
+                DestroyHand(); //Has it's own null check
                 handInstance = GameObject.Instantiate(handPrefab);
                 handInstance.transform.parent = this.transform;
                 handInstance.transform.localPosition = Vector3.zero;

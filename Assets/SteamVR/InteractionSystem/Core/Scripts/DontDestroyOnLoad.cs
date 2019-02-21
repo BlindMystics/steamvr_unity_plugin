@@ -15,6 +15,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		void Awake()
 		{
+		    Debug.LogError("Please use the Blind Mystics variant of this, k thx bye.");
 			DontDestroyOnLoad( this );
 		}
 	}

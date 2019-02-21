@@ -1218,6 +1218,24 @@ namespace Valve.VR
             return null;
         }
 
+        public static List<T> GetActions<T>(string actionName, bool caseSensitive = false) where T : SteamVR_Action {
+            T[] allActionsOfType = GetActions<T>();
+
+            List<T> result = new List<T>();
+
+            for (int actionIndex = 0; actionIndex < allActionsOfType.Length; actionIndex++) {
+                if (caseSensitive) {
+                    if (allActionsOfType[actionIndex].GetShortName() == actionName)
+                        result.Add(allActionsOfType[actionIndex]);
+                } else {
+                    if (string.Equals(allActionsOfType[actionIndex].GetShortName(), actionName, StringComparison.CurrentCultureIgnoreCase))
+                        result.Add(allActionsOfType[actionIndex]);
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Gets the localized name of the device that the action corresponds to. 
         /// </summary>
