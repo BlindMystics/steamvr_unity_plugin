@@ -9,10 +9,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 
-public interface ISteamVrInitialised {
-    void OnSteamVrInitialised();
-}
-
 namespace Valve.VR.InteractionSystem
 {
     //-------------------------------------------------------------------------
@@ -20,29 +16,6 @@ namespace Valve.VR.InteractionSystem
     // the player's hands, head, tracking origin, and guesses for various properties.
     //-------------------------------------------------------------------------
     public class Player : MonoBehaviour {
-
-        public class InitialsedEventSteamVrHandler : GameObjectEvent<ISteamVrInitialised> {
-
-            bool initialisationComplete = false;
-
-            protected override void OnListenerAdded(ISteamVrInitialised newListener) {
-                base.OnListenerAdded(newListener);
-                if (initialisationComplete) {
-                    newListener.OnSteamVrInitialised();
-                }
-            }
-
-            public void NotifyInitialisationComplete() {
-                initialisationComplete = true;
-                base.ForEach(listener => listener.OnSteamVrInitialised());
-            }
-
-            public override void ForEach(Action<ISteamVrInitialised> action) {
-                throw new UnityException("This event handler shouldn't be used this way, call specific functions instead.");
-            }
-        }
-
-        public static InitialsedEventSteamVrHandler steamVrInitialisedEvent = new InitialsedEventSteamVrHandler();
 
 		[Tooltip( "Virtual transform corresponding to the meatspace tracking origin. Devices are tracked relative to this." )]
 		public Transform trackingOriginTransform;
@@ -73,11 +46,34 @@ namespace Valve.VR.InteractionSystem
         [Tooltip( "The estimated body collider for the player." )]
         public BodyCollider bodyCollider;
 
+        private bool initialisationComplete = false;
 
-		//-------------------------------------------------
-		// Singleton instance of the Player. Only one can exist at a time.
-		//-------------------------------------------------
-		private static Player _instance;
+        public delegate void OnInitialisationCompleteDelegate();
+
+        private OnInitialisationCompleteDelegate onInitialisationCompleteDelegate = null;
+
+        private void OnInitialisationComplete() {
+            initialisationComplete = true;
+            onInitialisationCompleteDelegate?.Invoke();
+            onInitialisationCompleteDelegate = null;
+        }
+
+        public void ListenForInitialisationComplete(OnInitialisationCompleteDelegate delegateToCall) {
+            if (initialisationComplete) {
+                delegateToCall.Invoke();
+            } else {
+                if (onInitialisationCompleteDelegate == null) {
+                    onInitialisationCompleteDelegate = delegateToCall;
+                } else {
+                    onInitialisationCompleteDelegate += delegateToCall;
+                }
+            }
+        }
+
+        //-------------------------------------------------
+        // Singleton instance of the Player. Only one can exist at a time.
+        //-------------------------------------------------
+        private static Player _instance;
 		public static Player instance
 		{
 			get
@@ -323,7 +319,7 @@ namespace Valve.VR.InteractionSystem
 #endif
 			}
 
-            steamVrInitialisedEvent.NotifyInitialisationComplete();
+            OnInitialisationComplete();
         }
 
         protected virtual void Update()

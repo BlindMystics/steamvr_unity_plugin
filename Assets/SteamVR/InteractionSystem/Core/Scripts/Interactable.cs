@@ -100,7 +100,7 @@ namespace Valve.VR.InteractionSystem
             {
                 if (useHandObjectAttachmentPoint)
                 {
-                    //Debug.LogWarning("<b>[SteamVR Interaction]</b> SkeletonPose and useHandObjectAttachmentPoint both set at the same time. Ignoring useHandObjectAttachmentPoint.");
+                    Debug.LogError("<b>[SteamVR Interaction]</b> SkeletonPose and useHandObjectAttachmentPoint both set at the same time. Ignoring useHandObjectAttachmentPoint.");
                     useHandObjectAttachmentPoint = false;
                 }
             }

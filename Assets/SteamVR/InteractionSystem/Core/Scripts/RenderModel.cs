@@ -33,6 +33,9 @@ namespace Valve.VR.InteractionSystem
 
         protected SteamVR_Input_Sources inputSource;
 
+        protected int transformFollowFrame = -1;
+        protected Transform transformToFollow;
+
         protected void Awake()
         {
             renderModelLoadedAction = SteamVR_Events.RenderModelLoadedAction(OnRenderModelLoaded);
@@ -166,6 +169,23 @@ namespace Valve.VR.InteractionSystem
             if (handInstance != null)
             {
                 handInstance.transform.rotation = newRotation;
+            }
+        }
+
+        public void FollowTransformThisFrame(Transform transformToFollow) {
+            this.transformToFollow = transformToFollow;
+            this.transformFollowFrame = Time.frameCount;
+        }
+
+        protected virtual void LateUpdate() {
+            if (transformFollowFrame == Time.frameCount) {
+                handInstance.transform.SetParent(transformToFollow);
+                SetHandPosition(transformToFollow.position);
+                SetHandRotation(transformToFollow.rotation);
+            } else {
+                if (handInstance.transform.parent != this.transform) {
+                    handInstance.transform.SetParent(this.transform);
+                }
             }
         }
 
