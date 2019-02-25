@@ -891,15 +891,19 @@ namespace Valve.VR.InteractionSystem
 
 			if ( teleportingToMarker.ShouldMovePlayer() )
 			{
-				Vector3 playerFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
-                Vector3 teleportDestination = teleportPosition + playerFeetOffset;
-                Vector3 teleportPositionOffset = teleportDestination - player.trackingOriginTransform.position;
-                player.trackingOriginTransform.position = teleportDestination;
+                Vector3 teleportPositionOffset = teleportPosition - player.trackingOriginTransform.position;
+                player.trackingOriginTransform.position = teleportPosition;
 
                 //Teleport everything that the player is holding onto as well.
                 foreach (Hand hand in player.hands) {
                     foreach (Hand.AttachedObject attachedObject in hand.AttachedObjects) {
-                        attachedObject.attachedObject.transform.position += teleportPositionOffset;
+                        if (attachedObject.HasAttachFlag(Hand.AttachmentFlags.VelocityMovement)) {
+                            attachedObject.attachedRigidbody.MovePosition(attachedObject.attachedRigidbody.position += teleportPositionOffset);
+                            attachedObject.attachedRigidbody.velocity = Vector3.zero;
+                            attachedObject.attachedRigidbody.angularVelocity = Vector3.zero;
+                        } else {
+                            attachedObject.attachedObject.transform.position += teleportPositionOffset;
+                        }
                     }
                 }
 			}
