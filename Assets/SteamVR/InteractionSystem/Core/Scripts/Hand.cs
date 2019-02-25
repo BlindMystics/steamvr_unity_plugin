@@ -1226,7 +1226,13 @@ namespace Valve.VR.InteractionSystem
 
             if (currentAttachedObjectInfo != null && currentAttachedObjectInfo.Value.interactable != null) {
                 if (currentAttachedObjectInfo.Value.interactable.handFollowTransform) {
-                    mainRenderModel.FollowTransformThisFrame(currentAttachedObjectInfo.Value.attachedOffsetTransform);
+                    if (mainRenderModel == null) {
+                        if (!NoVrCamera.NoVrEnabled) {
+                            Debug.LogError("mainRenderModel is null and it shouldn't be.");
+                        }
+                    } else {
+                        mainRenderModel.FollowTransformThisFrame(currentAttachedObjectInfo.Value.attachedOffsetTransform);
+                    }
                 }
             }
 
