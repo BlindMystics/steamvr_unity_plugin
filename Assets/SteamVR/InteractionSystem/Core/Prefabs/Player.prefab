@@ -217,6 +217,7 @@ GameObject:
   m_Component:
   - component: {fileID: 447954}
   - component: {fileID: 11465950}
+  - component: {fileID: 3092734302680492060}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -274,6 +275,22 @@ MonoBehaviour:
     needsReinit: 0
   allowToggleTo2D: 1
   bodyCollider: {fileID: 0}
+--- !u!54 &3092734302680492060
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107946}
+  serializedVersion: 2
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1 &109154
 GameObject:
   m_ObjectHideFlags: 0
@@ -485,7 +502,6 @@ GameObject:
   m_Component:
   - component: {fileID: 453574}
   - component: {fileID: 13533284}
-  - component: {fileID: 5452286}
   m_Layer: 26
   m_Name: HeadCollider
   m_TagString: Untagged
@@ -520,22 +536,6 @@ SphereCollider:
   serializedVersion: 2
   m_Radius: 0.12
   m_Center: {x: 0, y: 0, z: 0}
---- !u!54 &5452286
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 121078}
-  serializedVersion: 2
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0
-  m_UseGravity: 0
-  m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!1 &125964
 GameObject:
   m_ObjectHideFlags: 0
@@ -1386,7 +1386,6 @@ GameObject:
   - component: {fileID: 476076}
   - component: {fileID: 13693334}
   - component: {fileID: 11455280}
-  - component: {fileID: 5475726}
   m_Layer: 27
   m_Name: BodyCollider
   m_TagString: Untagged
@@ -1435,22 +1434,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   head: {fileID: 0}
---- !u!54 &5475726
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 191996}
-  serializedVersion: 2
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0
-  m_UseGravity: 0
-  m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!1 &1000011498581176
 GameObject:
   m_ObjectHideFlags: 0
