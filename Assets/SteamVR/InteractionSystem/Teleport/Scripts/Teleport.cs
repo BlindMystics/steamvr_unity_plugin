@@ -897,12 +897,25 @@ namespace Valve.VR.InteractionSystem
                 //Teleport everything that the player is holding onto as well.
                 foreach (Hand hand in player.hands) {
                     foreach (Hand.AttachedObject attachedObject in hand.AttachedObjects) {
+
+                        Vector3 newTransformPosition = attachedObject.attachedObject.transform.position + teleportPositionOffset;
+                        Vector3 newRigidBodyPosition = Vector3.zero;
+
                         if (attachedObject.HasAttachFlag(Hand.AttachmentFlags.VelocityMovement)) {
-                            attachedObject.attachedRigidbody.MovePosition(attachedObject.attachedRigidbody.position += teleportPositionOffset);
+                            newRigidBodyPosition = attachedObject.attachedRigidbody.position + teleportPositionOffset;
+                        }
+
+                        attachedObject.attachedObject.transform.position = newTransformPosition;
+
+                        if (attachedObject.HasAttachFlag(Hand.AttachmentFlags.VelocityMovement)) {
+                            attachedObject.attachedRigidbody.position = newRigidBodyPosition;
                             attachedObject.attachedRigidbody.velocity = Vector3.zero;
                             attachedObject.attachedRigidbody.angularVelocity = Vector3.zero;
-                        } else {
-                            attachedObject.attachedObject.transform.position += teleportPositionOffset;
+                        }
+
+                        VelocityEstimator velocityEstimator = attachedObject.attachedObject.GetComponent<VelocityEstimator>();
+                        if (velocityEstimator != null) {
+                            velocityEstimator.BeginEstimatingVelocity();
                         }
                     }
                 }
