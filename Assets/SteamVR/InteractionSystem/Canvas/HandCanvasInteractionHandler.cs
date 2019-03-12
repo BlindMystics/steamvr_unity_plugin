@@ -58,7 +58,6 @@ namespace Valve.VR.InteractionSystem {
         }
 
         private void OnEnable() {
-            Debug.Log("Registering canvas interactor. " + gameObject.transform.parent.name);
             PointingInputModule.instance.AddCanvasInteractionHandler(this);
         }
 
