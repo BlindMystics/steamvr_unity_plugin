@@ -48,6 +48,11 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		public Vector3 GetVelocityEstimate()
 		{
+
+            if (Time.deltaTime <= 0) {
+                return Vector3.zero;
+            }
+
 			// Compute average velocity
 			Vector3 velocity = Vector3.zero;
 			int velocitySampleCount = Mathf.Min( sampleCount, velocitySamples.Length );
@@ -67,8 +72,13 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		public Vector3 GetAngularVelocityEstimate()
 		{
-			// Compute average angular velocity
-			Vector3 angularVelocity = Vector3.zero;
+
+            if (Time.deltaTime <= 0) {
+                return Vector3.zero;
+            }
+
+            // Compute average angular velocity
+            Vector3 angularVelocity = Vector3.zero;
 			int angularVelocitySampleCount = Mathf.Min( sampleCount, angularVelocitySamples.Length );
 			if ( angularVelocitySampleCount != 0 )
 			{
@@ -86,7 +96,12 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		public Vector3 GetAccelerationEstimate()
 		{
-			Vector3 average = Vector3.zero;
+
+            if (Time.deltaTime <= 0) {
+                return Vector3.zero;
+            }
+
+            Vector3 average = Vector3.zero;
 			for ( int i = 2 + sampleCount - velocitySamples.Length; i < sampleCount; i++ )
 			{
 				if ( i < 2 )
@@ -128,7 +143,14 @@ namespace Valve.VR.InteractionSystem
 			{
 				yield return new WaitForEndOfFrame();
 
-				float velocityFactor = 1.0f / Time.deltaTime;
+                float deltaTime = Time.deltaTime;
+
+                if (deltaTime <= 0) {
+                    //Invalid.
+                    continue;
+                }
+
+				float velocityFactor = 1.0f / deltaTime;
 
 				int v = sampleCount % velocitySamples.Length;
 				int w = sampleCount % angularVelocitySamples.Length;
