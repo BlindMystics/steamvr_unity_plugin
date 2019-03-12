@@ -22,6 +22,9 @@ namespace Valve.VR
         [Tooltip("If not set, relative to parent")]
         public Transform origin;
 
+        [Tooltip("If position and rotation is zero, ignore the update.")]
+        public bool filterOutZeroValues = true;
+
         /// <summary>Returns whether or not the current pose is in a valid state</summary>
         public bool isValid { get { return poseAction[inputSource].poseIsValid; } }
 
@@ -109,8 +112,19 @@ namespace Valve.VR
             historyBuffer.Clear();
         }
 
-        private void SteamVR_Behaviour_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
-        {
+        private void SteamVR_Behaviour_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource) {
+
+            if (filterOutZeroValues) {
+                Vector3 poseActionLocalPosition = poseAction[inputSource].localPosition;
+                Quaternion poseActionLocalRotation = poseAction[inputSource].localRotation;
+
+                if (Vector3.zero.Equals(poseActionLocalPosition) && Quaternion.identity.Equals(poseActionLocalRotation)) {
+                    //Ignore this update.
+                    //Debug.LogWarning("Invalid transform update, all values are zero.");
+                    return;
+                }
+            }
+
             UpdateHistoryBuffer();
 
             UpdateTransform();
@@ -123,6 +137,7 @@ namespace Valve.VR
         protected virtual void UpdateTransform()
         {
             CheckDeviceIndex();
+
 
             if (origin != null)
             {

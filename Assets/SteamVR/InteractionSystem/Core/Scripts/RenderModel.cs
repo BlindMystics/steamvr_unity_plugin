@@ -36,6 +36,10 @@ namespace Valve.VR.InteractionSystem
         protected int transformFollowFrame = -1;
         protected Transform transformToFollow;
 
+        private Vector3 baseTransformPositionOffset;
+        private Quaternion baseTransformRotationOffset;
+        private bool storedBaseOffsets = false;
+
         protected void Awake()
         {
             renderModelLoadedAction = SteamVR_Events.RenderModelLoadedAction(OnRenderModelLoaded);
@@ -178,13 +182,26 @@ namespace Valve.VR.InteractionSystem
         }
 
         protected virtual void LateUpdate() {
+
             if (transformFollowFrame == Time.frameCount) {
+                if (!storedBaseOffsets) {
+                    //Store offsets before setting the parent.
+                    storedBaseOffsets = true;
+                    baseTransformPositionOffset = handInstance.transform.localPosition;
+                    baseTransformRotationOffset = handInstance.transform.localRotation;
+                }
                 handInstance.transform.SetParent(transformToFollow);
                 SetHandPosition(transformToFollow.position);
                 SetHandRotation(transformToFollow.rotation);
             } else {
                 if (handInstance.transform.parent != this.transform) {
                     handInstance.transform.SetParent(this.transform);
+                    if (storedBaseOffsets) {
+                        //Restore base offsets.
+                        storedBaseOffsets = false;
+                        handInstance.transform.localPosition = baseTransformPositionOffset;
+                        handInstance.transform.localRotation = baseTransformRotationOffset;
+                    }
                 }
             }
         }
