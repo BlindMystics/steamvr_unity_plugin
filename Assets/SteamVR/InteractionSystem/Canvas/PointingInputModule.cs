@@ -18,6 +18,12 @@ namespace Valve.VR.InteractionSystem {
             get => base.eventSystem;
         }
 
+        public Camera EventCamera {
+            get {
+                return currentInteractionHandler?.eventCamera;
+            }
+        }
+
         private List<HandCanvasInteractionHandler> interactionHandlers;
 
         private HandCanvasInteractionHandler currentInteractionHandler = null;
@@ -40,7 +46,6 @@ namespace Valve.VR.InteractionSystem {
 
             if (currentInteractionHandler != null) {
                 if (currentInteractionHandler.CurrentCanvas == null) {
-                    currentInteractionHandler = null;
                     return;
                 } else {
                     currentInteractionHandler.ClaimCanvas();
