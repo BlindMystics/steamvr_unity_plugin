@@ -530,6 +530,12 @@ namespace Valve.VR.InteractionSystem
                     attachedObject.initialPositionalOffset = attachedObject.handAttachmentPointTransform.InverseTransformPoint(followPoint.position);
                     attachedObject.initialRotationalOffset = Quaternion.Inverse(attachedObject.handAttachmentPointTransform.rotation) * followPoint.rotation;
                 }
+
+                if (attachedObject.HasAttachFlag(AttachmentFlags.VelocityMovement)) {
+                    attachedObject.attachedRigidbody.velocity = Vector3.zero;
+                    attachedObject.attachedRigidbody.angularVelocity = Vector3.zero;
+                }
+
             }
             else
             {
