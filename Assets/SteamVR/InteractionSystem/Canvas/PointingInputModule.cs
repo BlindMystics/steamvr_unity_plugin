@@ -25,7 +25,6 @@ namespace Valve.VR.InteractionSystem {
         protected override void Awake() {
             base.Awake();
             _instance = this;
-            interactionHandlers = new List<HandCanvasInteractionHandler>();
         }
 
         public override void Process() {
@@ -52,6 +51,8 @@ namespace Valve.VR.InteractionSystem {
                 base.HandlePointerExitAndEnter(currentPointerEventData, currentInteractionHandler.CurrentGameObject);
 
                 if (currentInteractionHandler.InteractionButtonPressed) {
+                    currentPointerEventData.pressPosition = currentPointerEventData.position;
+                    currentPointerEventData.pointerPressRaycast = currentPointerEventData.pointerCurrentRaycast;
 
                     GameObject newPressed = ExecuteEvents.ExecuteHierarchy(currentInteractionHandler.CurrentGameObject,
                         currentPointerEventData, ExecuteEvents.pointerDownHandler);
@@ -62,6 +63,7 @@ namespace Valve.VR.InteractionSystem {
                     }
 
                     currentPointerEventData.pointerPress = newPressed;
+                    currentPointerEventData.rawPointerPress = currentInteractionHandler.CurrentGameObject;
                     currentPointerEventData.pointerDrag = null;
                     Select(newPressed);
                 }
@@ -70,7 +72,6 @@ namespace Valve.VR.InteractionSystem {
                     ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.beginDragHandler);
                     currentPointerEventData.pointerDrag = currentPointerEventData.pointerPress;
                     currentPointerEventData.dragging = true;
-                    Debug.Log("Dragging started on object " + currentPointerEventData.pointerDrag?.name);
                 }
 
                 if (currentInteractionHandler.InteractionButtonReleased) {
@@ -82,7 +83,6 @@ namespace Valve.VR.InteractionSystem {
                             ExecuteEvents.ExecuteHierarchy(currentInteractionHandler.CurrentGameObject, currentPointerEventData, ExecuteEvents.dropHandler);
                         }
                         currentPointerEventData.pointerDrag = null;
-                        Debug.Log("Stopped dragging.");
                     }
 
                     if (currentPointerEventData.pointerPress != null) {
@@ -116,7 +116,19 @@ namespace Valve.VR.InteractionSystem {
         }
 
         public void AddCanvasInteractionHandler(HandCanvasInteractionHandler interactionHandler) {
+            if (interactionHandlers == null) {
+                interactionHandlers = new List<HandCanvasInteractionHandler>();
+            }
+
             interactionHandlers.Add(interactionHandler);
+
+            if (currentInteractionHandler == null) {
+                interactionHandler = currentInteractionHandler;
+            }
+        }
+
+        public void RemoveCanvasInteractionHandler(HandCanvasInteractionHandler interactionHandler) {
+            interactionHandlers?.Remove(interactionHandler);
         }
     }
 }

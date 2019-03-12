@@ -7,7 +7,7 @@ namespace Valve.VR.InteractionSystem {
     public class HandCanvasInteractionHandler : MonoBehaviour {
         private SteamVR_Action_Boolean interactUI = SteamVR_Input.GetAction<SteamVR_Action_Boolean>("InteractUI");
 
-        public Camera handInteractionEventCamera;
+        public Camera eventCamera;
         public LineRenderer lineRenderer;
 
         private int raycastLayerMask;
@@ -53,9 +53,17 @@ namespace Valve.VR.InteractionSystem {
             hand = GetComponent<Hand>();
 
             raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
-            PointingInputModule.instance.AddCanvasInteractionHandler(this);
 
             pointerEventData = new PointerEventData(PointingInputModule.instance.EventSystem);
+        }
+
+        private void OnEnable() {
+            Debug.Log("Registering canvas interactor. " + gameObject.transform.parent.name);
+            PointingInputModule.instance.AddCanvasInteractionHandler(this);
+        }
+
+        private void OnDisable() {
+            PointingInputModule.instance.RemoveCanvasInteractionHandler(this);
         }
 
         public void UpdateInteractionHandler() {
@@ -84,7 +92,7 @@ namespace Valve.VR.InteractionSystem {
                 lastInteractTime = Time.time;
             }
 
-            Ray cameraRay = handInteractionEventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
+            Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
 
             RaycastHit hit;
             bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, raycastLayerMask);
@@ -96,7 +104,7 @@ namespace Valve.VR.InteractionSystem {
 
                 currentCanvas = canvas;
             } else {
-                handInteractionEventCamera.enabled = false;
+                eventCamera.enabled = false;
                 UnclaimCanvas();
                 currentCanvas = null;
             }
@@ -114,17 +122,19 @@ namespace Valve.VR.InteractionSystem {
         private void RaycastCanvas() {
             GraphicRaycaster raycaster = currentCanvas.GetComponent<GraphicRaycaster>();
 
-            //This is relative to the event camera POV.
-            //Ensure that the camera FOV is near 0.
-            pointerEventData.position = new Vector2(0.5f, 0.5f);
+            //This is relative to the event camera POV. We want to use the center here.
+            pointerEventData.position = new Vector2(eventCamera.pixelWidth * 0.5f, eventCamera.pixelHeight * 0.5f);
+            pointerEventData.delta = new Vector2(0f, 0f);
 
             List<RaycastResult> raycastResults = new List<RaycastResult>();
 
             raycaster.Raycast(pointerEventData, raycastResults);
             
             if (raycastResults.Count > 0) {
-                currentGameObject = raycastResults[0].gameObject;
+                pointerEventData.pointerCurrentRaycast = raycastResults[0];
+                currentGameObject = pointerEventData.pointerCurrentRaycast.gameObject;
             } else {
+                pointerEventData.pointerCurrentRaycast = new RaycastResult();
                 currentGameObject = null;
             }
         }
@@ -134,8 +144,8 @@ namespace Valve.VR.InteractionSystem {
         }
 
         public void ClaimCanvas() {
-            handInteractionEventCamera.enabled = true;
-            currentCanvas.worldCamera = handInteractionEventCamera;
+            eventCamera.enabled = true;
+            currentCanvas.worldCamera = eventCamera;
         }
 
         public void UnclaimCanvas() {
@@ -143,8 +153,8 @@ namespace Valve.VR.InteractionSystem {
                 return;
             }
 
-            handInteractionEventCamera.enabled = false;
-            if (currentCanvas.worldCamera == handInteractionEventCamera) {
+            eventCamera.enabled = false;
+            if (currentCanvas.worldCamera == eventCamera) {
                 currentCanvas.worldCamera = null;
             }
         }
