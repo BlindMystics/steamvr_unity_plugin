@@ -54,6 +54,10 @@ namespace Valve.VR.InteractionSystem {
 
             raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
 
+            foreach (string layer in PointingInputModule.instance.additionalUILayers) {
+                raycastLayerMask += 1 << LayerMask.NameToLayer(layer);
+            }
+
             pointerEventData = new PointerEventData(PointingInputModule.instance.EventSystem);
         }
 
@@ -68,6 +72,42 @@ namespace Valve.VR.InteractionSystem {
         public void UpdateInteractionHandler() {
             previousGameObject = currentGameObject;
 
+            UpdateInteractionButtonState();
+
+            Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
+
+            RaycastHit hit;
+            bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, raycastLayerMask);
+            if (raycastHit) {
+                GameObject hitObject = hit.collider.gameObject;
+                Canvas canvas = hitObject.GetComponent<Canvas>();
+                if (canvas == null) {
+                    CanvasHolder holder = hitObject.GetComponent<CanvasHolder>();
+                    if (holder != null) {
+                        canvas = holder.canvas;
+                    } else {
+                        return;
+                    }
+                }
+
+                currentCanvas = canvas;
+            } else {
+                eventCamera.enabled = false;
+                UnclaimCanvas();
+                currentCanvas = null;
+            }
+
+            if (currentCanvas != null) {
+                lineRenderer.SetPositions(new Vector3[] {
+                    new Vector3(),
+                    lineRenderer.transform.InverseTransformPoint(hit.point)
+                });
+
+                RaycastCanvas();
+            }
+        }
+
+        private void UpdateInteractionButtonState() {
             bool buttonState = VrInputRemapper.GetState(interactUI, Hand.handType);
             if (buttonState) {
                 if (interactionButtonPressed) {
@@ -89,32 +129,6 @@ namespace Valve.VR.InteractionSystem {
 
             if (interactionButtonPressed) {
                 lastInteractTime = Time.time;
-            }
-
-            Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
-
-            RaycastHit hit;
-            bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, raycastLayerMask);
-            if (raycastHit) {
-                Canvas canvas = hit.collider.gameObject.GetComponent<Canvas>();
-                if (canvas == null) {
-                    return;
-                }
-
-                currentCanvas = canvas;
-            } else {
-                eventCamera.enabled = false;
-                UnclaimCanvas();
-                currentCanvas = null;
-            }
-
-            if (currentCanvas != null) {
-                lineRenderer.SetPositions(new Vector3[] {
-                    new Vector3(),
-                    lineRenderer.transform.InverseTransformPoint(hit.point)
-                });
-
-                RaycastCanvas();
             }
         }
 
@@ -144,7 +158,9 @@ namespace Valve.VR.InteractionSystem {
 
         public void ClaimCanvas() {
             eventCamera.enabled = true;
-            currentCanvas.worldCamera = eventCamera;
+            if (currentCanvas.renderMode == RenderMode.WorldSpace) {
+                currentCanvas.worldCamera = eventCamera;
+            }
         }
 
         public void UnclaimCanvas() {

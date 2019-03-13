@@ -4,6 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace Valve.VR.InteractionSystem {
     public class PointingInputModule : BaseInputModule {
+        public string[] additionalUILayers;
+
         private static PointingInputModule _instance;
         public static PointingInputModule instance {
             get {
