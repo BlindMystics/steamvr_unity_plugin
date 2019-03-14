@@ -1114,41 +1114,45 @@ namespace Valve.VR.InteractionSystem
 
 
         protected virtual void UpdateNoSteamVRFallbackFocusedHandInFrontOfCameraWay() {
-                    NoVrCamera noVrCamera = NoVrCamera.Instance;
-                    Transform cameraTransform = noVrCamera.transform;
+            if (PointingInputModule.instance.InputLock) {
+                return;
+            }
+
+            NoVrCamera noVrCamera = NoVrCamera.Instance;
+            Transform cameraTransform = noVrCamera.transform;
 
 
-                    if (noVrCamera.ControllingHand == handType) {
+            if (noVrCamera.ControllingHand == handType) {
 
-                        float distMultiplier = 1.0f + (Input.mouseScrollDelta.y * 0.1f);
-                        noSteamVRFallbackHandDistFromCamera *= distMultiplier;
+                float distMultiplier = 1.0f + (Input.mouseScrollDelta.y * 0.1f);
+                noSteamVRFallbackHandDistFromCamera *= distMultiplier;
 
-                        Vector3 forwardFromCamera = cameraTransform.forward;
-                        Vector3 cameraPosition = cameraTransform.position;
+                Vector3 forwardFromCamera = cameraTransform.forward;
+                Vector3 cameraPosition = cameraTransform.position;
 
-                        Vector3 handPosition = cameraPosition + forwardFromCamera * noSteamVRFallbackHandDistFromCamera;
-                        transform.position = handPosition;
+                Vector3 handPosition = cameraPosition + forwardFromCamera * noSteamVRFallbackHandDistFromCamera;
+                transform.position = handPosition;
 
-                        //noSteamVRFallbackHandRotationOffset
-                        if (Input.GetKey(noVrCamera.tiltHandUp)) {
-                            noSteamVRFallbackHandRotationOffset.x += Time.deltaTime * 45;
-                        }
-                        if (Input.GetKey(noVrCamera.tiltHandDown)) {
-                            noSteamVRFallbackHandRotationOffset.x -= Time.deltaTime * 45;
-                        }
-
-
-                    } else {
-                        Vector3 downFromCamera = -cameraTransform.up;
-                        Vector3 cameraPosition = cameraTransform.position;
-
-                        Vector3 handPosition = cameraPosition + downFromCamera * noSteamVRFallbackHandDistFromCamera;
-                        transform.position = handPosition;
-                    }
-
-                    transform.rotation = cameraTransform.rotation * Quaternion.Euler(noSteamVRFallbackHandRotationOffset);
-
+                //noSteamVRFallbackHandRotationOffset
+                if (Input.GetKey(noVrCamera.tiltHandUp)) {
+                    noSteamVRFallbackHandRotationOffset.x += Time.deltaTime * 45;
                 }
+                if (Input.GetKey(noVrCamera.tiltHandDown)) {
+                    noSteamVRFallbackHandRotationOffset.x -= Time.deltaTime * 45;
+                }
+
+
+            } else {
+                Vector3 downFromCamera = -cameraTransform.up;
+                Vector3 cameraPosition = cameraTransform.position;
+
+                Vector3 handPosition = cameraPosition + downFromCamera * noSteamVRFallbackHandDistFromCamera;
+                transform.position = handPosition;
+            }
+
+            transform.rotation = cameraTransform.rotation * Quaternion.Euler(noSteamVRFallbackHandRotationOffset);
+
+        }
 
 
         //-------------------------------------------------

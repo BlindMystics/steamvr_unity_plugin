@@ -108,7 +108,9 @@ namespace Valve.VR.InteractionSystem {
         }
 
         private void UpdateInteractionButtonState() {
-            bool buttonState = VrInputRemapper.GetState(interactUI, Hand.handType);
+            bool buttonState = !PointingInputModule.instance.InputLock && 
+                VrInputRemapper.GetState(interactUI, Hand.handType);
+
             if (buttonState) {
                 if (interactionButtonPressed) {
                     interactionButtonPressed = false;

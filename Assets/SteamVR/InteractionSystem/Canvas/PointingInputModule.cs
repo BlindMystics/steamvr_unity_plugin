@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Valve.VR.InteractionSystem {
     public class PointingInputModule : BaseInputModule {
@@ -26,13 +27,23 @@ namespace Valve.VR.InteractionSystem {
             }
         }
 
+        private bool inputLock = false;
+        public bool InputLock {
+            get => inputLock;
+        }
+
         private List<HandCanvasInteractionHandler> interactionHandlers;
 
         private HandCanvasInteractionHandler currentInteractionHandler = null;
 
+        private InputField activeInputField = null;
+
         protected override void Awake() {
             base.Awake();
             _instance = this;
+
+            SteamVR_Events.System(EVREventType.VREvent_KeyboardCharInput).Listen(OnKeyboard);
+            SteamVR_Events.System(EVREventType.VREvent_KeyboardClosed).Listen(OnKeyboardClosed);
         }
 
         public override void Process() {
@@ -106,6 +117,73 @@ namespace Valve.VR.InteractionSystem {
                     ExecuteEvents.Execute(currentPointerEventData.pointerDrag, currentPointerEventData, ExecuteEvents.dragHandler);
                 }
             }
+
+            handleKeyboard();
+        }
+
+        private void handleKeyboard() {
+            if (activeInputField == null) {
+                return;
+            }
+
+            char[] keyboardInput = Input.inputString.ToCharArray();
+            if (keyboardInput.Length != 0) {
+                foreach (char c in keyboardInput) {
+                    Debug.Log(c + ": c");
+                    switch (c) {
+                        case '\n':
+                        case '\r':
+                            EndInputField();
+                            return;
+                        case '\b':
+                            if (activeInputField.caretPosition == 0) {
+                                break;
+                            }
+                            activeInputField.caretPosition--;
+                            activeInputField.text = activeInputField.text.Remove(activeInputField.caretPosition, 1);
+                            break;
+                        default:
+                            if (activeInputField.caretPosition < activeInputField.text.Length) {
+                                activeInputField.text = activeInputField.text.Insert(activeInputField.caretPosition, c + "");
+                            } else {
+                                activeInputField.text += c;
+                            }
+                            activeInputField.caretPosition++;
+                            break;
+                    }
+                }
+            } else {
+                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift);
+                bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)
+                     || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+                bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+
+                bool left = Input.GetKeyDown(KeyCode.LeftArrow);
+                bool right = Input.GetKeyDown(KeyCode.RightArrow);
+
+                bool home = Input.GetKeyDown(KeyCode.Home);
+                bool end = Input.GetKeyDown(KeyCode.End);
+
+                bool delete = Input.GetKeyDown(KeyCode.Delete);
+
+                if (left) {
+                    activeInputField.caretPosition--;
+                } else if (right) {
+                    activeInputField.caretPosition++;
+                }
+
+                if (home) {
+                    activeInputField.caretPosition = 0;
+                } else if (end) {
+                    activeInputField.caretPosition = activeInputField.text.Length;
+                }
+
+                if (delete) {
+                    if (activeInputField.caretPosition != activeInputField.text.Length) {
+                        activeInputField.text = activeInputField.text.Remove(activeInputField.caretPosition, 1);
+                    }
+                }
+            }
         }
 
         public void ClearSelection() {
@@ -119,7 +197,66 @@ namespace Valve.VR.InteractionSystem {
 
             if (ExecuteEvents.GetEventHandler<ISelectHandler>(gameObject)) {
                 base.eventSystem.SetSelectedGameObject(gameObject);
+                HandleInputField(gameObject);
             }
+        }
+
+        private void HandleInputField(GameObject gameObject) {
+            InputField inputField = gameObject.GetComponent<InputField>();
+            if (inputField != null) {
+                ShowKeyboard(inputField);
+            }
+        }
+
+        //Documentation: https://github.com/ValveSoftware/openvr/blob/41bfc14efef21b2959394d8b4c29b82c3bdd7d12/samples/unity_keyboard_sample/Assets/KeyboardSample.cs
+        private void ShowKeyboard(InputField inputField) {
+            activeInputField = inputField;
+
+            if (NoVrCamera.NoVrEnabled) {
+                inputLock = true;
+            } else {
+                int characterLimit = inputField.characterLimit;
+
+                if (characterLimit == 0) {
+                    characterLimit = 256;
+                }
+
+                string descriptionText = inputField.placeholder?.GetComponent<Text>()?.text;
+                SteamVR.instance.overlay.ShowKeyboard((int)EGamepadTextInputMode.k_EGamepadTextInputModeNormal,
+                    (int)EGamepadTextInputLineMode.k_EGamepadTextInputLineModeSingleLine,
+                    descriptionText, (uint)characterLimit, inputField.text, false, 0);
+            }
+        }
+
+        private void OnKeyboard(VREvent_t args) {
+            if (activeInputField == null) {
+                SteamVR.instance.overlay.HideKeyboard();
+                return;
+            }
+
+            VREvent_Keyboard_t keyboard = args.data.keyboard;
+            byte[] inputBytes = new byte[] { keyboard.cNewInput0, keyboard.cNewInput1, keyboard.cNewInput2, keyboard.cNewInput3, keyboard.cNewInput4, keyboard.cNewInput5, keyboard.cNewInput6, keyboard.cNewInput7 };
+            int len = 0;
+            for (; inputBytes[len] != 0 && len < 7; len++) ;
+            string input = System.Text.Encoding.UTF8.GetString(inputBytes, 0, len);
+
+            System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder(1024);
+            uint size = SteamVR.instance.overlay.GetKeyboardText(stringBuilder, 1024);
+            activeInputField.text = stringBuilder.ToString();
+        }
+
+        private void OnKeyboardClosed(VREvent_t args) {
+            EndInputField();
+        }
+
+        private void EndInputField() {
+            if (activeInputField == null) {
+                return;
+            }
+
+            inputLock = false;
+            activeInputField = null;
+            ClearSelection();
         }
 
         public void AddCanvasInteractionHandler(HandCanvasInteractionHandler interactionHandler) {

@@ -31,6 +31,10 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		protected virtual void Update()
 		{
+            if (PointingInputModule.instance.InputLock) {
+                return;
+            }
+
 			float forward = 0.0f;
 			if ( Input.GetKey( KeyCode.W ) || Input.GetKey( KeyCode.UpArrow ) )
 			{
