@@ -38,12 +38,17 @@ namespace Valve.VR.InteractionSystem {
 
         private InputField activeInputField = null;
 
+        private StandaloneInputModule keyboardHandlingInputModule;
+
         protected override void Awake() {
             base.Awake();
             _instance = this;
 
             SteamVR_Events.System(EVREventType.VREvent_KeyboardCharInput).Listen(OnKeyboard);
             SteamVR_Events.System(EVREventType.VREvent_KeyboardClosed).Listen(OnKeyboardClosed);
+
+           //WARNING: Ensure that this input module is specified above the StandaloneInputModule, or we will lose control.
+            keyboardHandlingInputModule = GetComponent<StandaloneInputModule>();
         }
 
         public override void Process() {
@@ -126,64 +131,11 @@ namespace Valve.VR.InteractionSystem {
                 return;
             }
 
-            char[] keyboardInput = Input.inputString.ToCharArray();
-            if (keyboardInput.Length != 0) {
-                foreach (char c in keyboardInput) {
-                    Debug.Log(c + ": c");
-                    switch (c) {
-                        case '\n':
-                        case '\r':
-                            EndInputField();
-                            return;
-                        case '\b':
-                            if (activeInputField.caretPosition == 0) {
-                                break;
-                            }
-                            activeInputField.caretPosition--;
-                            activeInputField.text = activeInputField.text.Remove(activeInputField.caretPosition, 1);
-                            break;
-                        default:
-                            if (activeInputField.caretPosition < activeInputField.text.Length) {
-                                activeInputField.text = activeInputField.text.Insert(activeInputField.caretPosition, c + "");
-                            } else {
-                                activeInputField.text += c;
-                            }
-                            activeInputField.caretPosition++;
-                            break;
-                    }
-                }
-            } else {
-                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift);
-                bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)
-                     || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
-                bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-
-                bool left = Input.GetKeyDown(KeyCode.LeftArrow);
-                bool right = Input.GetKeyDown(KeyCode.RightArrow);
-
-                bool home = Input.GetKeyDown(KeyCode.Home);
-                bool end = Input.GetKeyDown(KeyCode.End);
-
-                bool delete = Input.GetKeyDown(KeyCode.Delete);
-
-                if (left) {
-                    activeInputField.caretPosition--;
-                } else if (right) {
-                    activeInputField.caretPosition++;
-                }
-
-                if (home) {
-                    activeInputField.caretPosition = 0;
-                } else if (end) {
-                    activeInputField.caretPosition = activeInputField.text.Length;
-                }
-
-                if (delete) {
-                    if (activeInputField.caretPosition != activeInputField.text.Length) {
-                        activeInputField.text = activeInputField.text.Remove(activeInputField.caretPosition, 1);
-                    }
-                }
+            if (Input.GetKeyDown(KeyCode.Escape)) {
+                EndInputField();
             }
+
+            keyboardHandlingInputModule.Process();
         }
 
         public void ClearSelection() {
