@@ -94,6 +94,11 @@ namespace Valve.VR.InteractionSystem
         [HideInInspector]
         public HandSpecificEvent onHandDisabledEvent = new HandSpecificEvent();
 
+        public class HandTranslationEvent : UnityEvent<Transform> {}
+
+        [HideInInspector]
+        public HandTranslationEvent onHandTranslatedEvent = new HandTranslationEvent();
+
         private bool _handInitialised = false;
 
         public bool HandInitialised {
@@ -883,6 +888,7 @@ namespace Valve.VR.InteractionSystem
         protected virtual void OnTransformUpdated(SteamVR_Behaviour_Pose updatedPose, SteamVR_Input_Sources updatedSource)
         {
             HandFollowUpdate();
+            onHandTranslatedEvent.Invoke(transform);
         }
 
         //-------------------------------------------------
@@ -1336,6 +1342,11 @@ namespace Valve.VR.InteractionSystem
         }
 
         protected virtual void LateUpdate() {
+
+            if (NoVrCamera.NoVrEnabled) {
+                onHandTranslatedEvent.Invoke(transform);
+            }
+
             /*
             if (currentAttachedObjectInfo != null && currentAttachedObjectInfo.Value.interactable != null) {
 
