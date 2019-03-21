@@ -14,8 +14,9 @@ namespace Valve.VR.InteractionSystem
 	public class FallbackCameraController : MonoBehaviour
 	{
 		public float speed = 4.0f;
-		public float shiftSpeed = 16.0f;
-		public bool showInstructions = true;
+		public float shiftSpeedMultiplier = 4.0f;
+        public float ctrlSpeedMultiplier = 0.2f;
+        public bool showInstructions = true;
 
 		private Vector3 startEulerAngles;
 		private Vector3 startMousePosition;
@@ -58,10 +59,13 @@ namespace Valve.VR.InteractionSystem
 			float currentSpeed = speed;
 			if ( Input.GetKey( KeyCode.LeftShift ) || Input.GetKey( KeyCode.RightShift ) )
 			{
-				currentSpeed = shiftSpeed;
+				currentSpeed *= shiftSpeedMultiplier;
 			}
+            if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) {
+                currentSpeed *= ctrlSpeedMultiplier;
+            }
 
-			float realTimeNow = Time.realtimeSinceStartup;
+            float realTimeNow = Time.realtimeSinceStartup;
 			float deltaRealTime = realTimeNow - realTime;
 			realTime = realTimeNow;
 
