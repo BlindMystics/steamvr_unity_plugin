@@ -38,7 +38,9 @@ namespace Valve.VR.InteractionSystem {
 
                     canvas.worldCamera = null;
                 } else {
+#if UNITY_EDITOR
                     Debug.Log("No raycaster found on canvas " + canvas.gameObject.name + ". Not setting up as a VR interface.");
+#endif
                 }
             }
         }
