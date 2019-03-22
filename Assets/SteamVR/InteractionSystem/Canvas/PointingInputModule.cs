@@ -109,12 +109,19 @@ namespace Valve.VR.InteractionSystem {
                     }
 
                     if (currentPointerEventData.pointerPress != null) {
-                        ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerClickHandler);
 
-                        ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
+                        if (currentInteractionHandler.CurrentGameObject != null) {
+                            //Make sure that we're releasing the same object that we pressed.
+                            GameObject eventHandler = ExecuteEvents.GetEventHandler<IPointerDownHandler>(currentInteractionHandler.CurrentGameObject);
+                            if (eventHandler == currentPointerEventData.pointerPress) {
+                                ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerClickHandler);
+                                ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
+                            }
+                        }
 
                         currentPointerEventData.rawPointerPress = null;
                         currentPointerEventData.pointerPress = null;
+
                     }
                 }
 
