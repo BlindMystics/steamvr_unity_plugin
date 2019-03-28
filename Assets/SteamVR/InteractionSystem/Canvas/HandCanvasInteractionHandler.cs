@@ -130,7 +130,7 @@ namespace Valve.VR.InteractionSystem {
             }
 
             if (interactionButtonPressed) {
-                lastInteractTime = Time.time;
+                lastInteractTime = Time.unscaledTime;
             }
         }
 
