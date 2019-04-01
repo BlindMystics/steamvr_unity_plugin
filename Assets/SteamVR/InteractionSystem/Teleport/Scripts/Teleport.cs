@@ -12,7 +12,7 @@ using System.Collections.Generic;
 namespace Valve.VR.InteractionSystem
 {
     [System.Serializable]
-    public class TeleportPlayerEvent : UnityEvent {
+    public class TeleportIneligibleEvent : UnityEvent<Hand> {
     }
 
 	//-------------------------------------------------------------------------
@@ -118,11 +118,12 @@ namespace Valve.VR.InteractionSystem
 
 		SteamVR_Events.Action chaperoneInfoInitializedAction;
 
-        private TeleportPlayerEvent onTeleportPlayer = new TeleportPlayerEvent();
+        private UnityEvent onTeleportPlayer = new UnityEvent();
+        private TeleportIneligibleEvent onTeleportIneligible = new TeleportIneligibleEvent();
 
-		// Events
+        // Events
 
-		public static SteamVR_Events.Event< float > ChangeScene = new SteamVR_Events.Event< float >();
+        public static SteamVR_Events.Event< float > ChangeScene = new SteamVR_Events.Event< float >();
 		public static SteamVR_Events.Action< float > ChangeSceneAction( UnityAction< float > action ) { return new SteamVR_Events.Action< float >( ChangeScene, action ); }
 
 		public static SteamVR_Events.Event< TeleportMarkerBase > Player = new SteamVR_Events.Event< TeleportMarkerBase >();
@@ -1118,9 +1119,11 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private bool WasTeleportButtonReleased( Hand hand )
 		{
-			if ( IsEligibleForTeleport( hand ) )
+            bool teleportButtonReleased = teleportActions.GetStateUp(hand.handType);
+
+            if ( teleportButtonReleased )
 			{
-			    return teleportActions.GetStateUp(hand.handType);
+                return IsEligibleForTeleport(hand);
 			    /*
 				if ( hand.noSteamVRFallbackCamera != null )
 				{
@@ -1163,9 +1166,16 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private bool WasTeleportButtonPressed( Hand hand )
 		{
-			if ( IsEligibleForTeleport( hand ) )
+            bool teleportButtonPressed = teleportActions.GetStateDown(hand.handType);
+
+            if ( teleportButtonPressed )
 			{
-			    return teleportActions.GetStateDown(hand.handType);
+                if ( IsEligibleForTeleport(hand) ) {
+                    return true;
+                } else {
+                    onTeleportIneligible.Invoke(hand);
+                    return false;
+                }
 			    /*
 				if ( hand.noSteamVRFallbackCamera != null )
 				{
@@ -1218,5 +1228,13 @@ namespace Valve.VR.InteractionSystem
         public void RemoveOnTeleportPlayerListener(UnityAction eventListener) {
             onTeleportPlayer.RemoveListener(eventListener);
         }
-	}
+
+        public void AddOnTeleportIneligibleListener(UnityAction<Hand> eventListener) {
+            onTeleportIneligible.AddListener(eventListener);
+        }
+
+        public void RemoveOnTeleportIneligibleListener(UnityAction<Hand> eventListener) {
+            onTeleportIneligible.RemoveListener(eventListener);
+        }
+    }
 }
