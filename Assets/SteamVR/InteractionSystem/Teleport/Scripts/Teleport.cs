@@ -11,6 +11,10 @@ using System.Collections.Generic;
 
 namespace Valve.VR.InteractionSystem
 {
+    [System.Serializable]
+    public class TeleportPlayerEvent : UnityEvent {
+    }
+
 	//-------------------------------------------------------------------------
 	public class Teleport : MonoBehaviour
     {
@@ -113,6 +117,8 @@ namespace Valve.VR.InteractionSystem
 		private bool movedFeetFarEnough = false;
 
 		SteamVR_Events.Action chaperoneInfoInitializedAction;
+
+        private TeleportPlayerEvent onTeleportPlayer = new TeleportPlayerEvent();
 
 		// Events
 
@@ -854,7 +860,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void TeleportPlayer()
 		{
-			teleporting = false;
+            teleporting = false;
 
 			Teleport.PlayerPre.Send( pointedAtTeleportMarker );
 
@@ -926,7 +932,9 @@ namespace Valve.VR.InteractionSystem
 			}
 
 			Teleport.Player.Send( pointedAtTeleportMarker );
-		}
+
+            onTeleportPlayer.Invoke();
+        }
 
 
 		//-------------------------------------------------
@@ -1202,5 +1210,13 @@ namespace Valve.VR.InteractionSystem
 				return hand.transform;
 			}
 		}
+
+        public void AddOnTeleportPlayerListener(UnityAction eventListener) {
+            onTeleportPlayer.AddListener(eventListener);
+        }
+
+        public void RemoveOnTeleportPlayerListener(UnityAction eventListener) {
+            onTeleportPlayer.RemoveListener(eventListener);
+        }
 	}
 }
