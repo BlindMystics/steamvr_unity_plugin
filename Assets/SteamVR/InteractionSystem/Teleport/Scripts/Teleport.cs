@@ -826,12 +826,15 @@ namespace Valve.VR.InteractionSystem
 					//Pointing at an unlocked teleport marker
 					teleportingToMarker = pointedAtTeleportMarker;
 					InitiateTeleportFade();
-
 					CancelTeleportHint();
 				}
 			}
 		}
 
+        public void TeleportPlayerTo(TeleportMarkerBase teleportMarker) {
+            teleportingToMarker = teleportMarker;
+            InitiateTeleportFade();
+        }
 
 		//-------------------------------------------------
 		private void InitiateTeleportFade()
