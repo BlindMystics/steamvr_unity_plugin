@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace Valve.VR.InteractionSystem {
     public class SceneCanvasHandler : MonoBehaviour {
-        public Player vrPlayer;
+        public bool showCanvasRaycasterWarnings = true;
 
         private Canvas[] canvases;
         private int uiLayer;
@@ -39,7 +39,8 @@ namespace Valve.VR.InteractionSystem {
                     canvas.worldCamera = null;
                 } else {
 #if UNITY_EDITOR
-                    Debug.Log("No raycaster found on canvas " + canvas.gameObject.name + ". Not setting up as a VR interface.");
+                    if (showCanvasRaycasterWarnings)
+                        Debug.Log("No raycaster found on canvas " + canvas.gameObject.name + ". Not setting up as a VR interface.");
 #endif
                 }
             }
