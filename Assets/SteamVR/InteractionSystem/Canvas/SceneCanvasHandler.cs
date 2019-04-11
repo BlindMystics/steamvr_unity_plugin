@@ -15,7 +15,10 @@ namespace Valve.VR.InteractionSystem {
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            Debug.Log("A scene was loaded. Updating canvases for SteamVR.");
+#if UNITY_EDITOR
+            if (showCanvasDebugInformation)
+                Debug.Log("A scene was loaded. Updating canvases for SteamVR.");
+#endif
 
             canvases = FindObjectsOfType<Canvas>();
 
