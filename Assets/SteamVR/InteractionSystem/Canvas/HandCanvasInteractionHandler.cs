@@ -54,19 +54,19 @@ namespace Valve.VR.InteractionSystem {
 
             raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
 
-            foreach (string layer in PointingInputModule.instance.additionalUILayers) {
+            foreach (string layer in PointingInputModule.Instance.additionalUILayers) {
                 raycastLayerMask += 1 << LayerMask.NameToLayer(layer);
             }
 
-            pointerEventData = new PointerEventData(PointingInputModule.instance.EventSystem);
+            pointerEventData = new PointerEventData(PointingInputModule.Instance.EventSystem);
         }
 
         private void OnEnable() {
-            PointingInputModule.instance.AddCanvasInteractionHandler(this);
+            PointingInputModule.Instance.AddCanvasInteractionHandler(this);
         }
 
         private void OnDisable() {
-            PointingInputModule.instance.RemoveCanvasInteractionHandler(this);
+            PointingInputModule.Instance.RemoveCanvasInteractionHandler(this);
         }
 
         public void UpdateInteractionHandler() {
@@ -108,7 +108,7 @@ namespace Valve.VR.InteractionSystem {
         }
 
         private void UpdateInteractionButtonState() {
-            bool buttonState = !PointingInputModule.instance.InputLock && 
+            bool buttonState = !PointingInputModule.Instance.InputLock && 
                 VrInputRemapper.GetState(interactUI, Hand.handType);
 
             if (buttonState) {

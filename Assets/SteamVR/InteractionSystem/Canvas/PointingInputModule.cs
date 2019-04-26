@@ -8,7 +8,7 @@ namespace Valve.VR.InteractionSystem {
         public string[] additionalUILayers;
 
         private static PointingInputModule _instance;
-        public static PointingInputModule instance {
+        public static PointingInputModule Instance {
             get {
                 if (_instance == null)
                     _instance = GameObject.FindObjectOfType<PointingInputModule>();

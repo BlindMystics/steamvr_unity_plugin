@@ -1120,7 +1120,7 @@ namespace Valve.VR.InteractionSystem
 
 
         protected virtual void UpdateNoSteamVRFallbackFocusedHandInFrontOfCameraWay() {
-            if (PointingInputModule.instance.InputLock) {
+            if (PointingInputModule.Instance.InputLock) {
                 return;
             }
 

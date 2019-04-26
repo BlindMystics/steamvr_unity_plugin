@@ -32,7 +32,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		protected virtual void Update()
 		{
-            if (PointingInputModule.instance.InputLock) {
+            if (PointingInputModule.Instance.InputLock) {
                 return;
             }
 
