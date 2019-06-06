@@ -28,11 +28,11 @@ namespace Valve.VR.InteractionSystem
 		void FixedUpdate()
 		{
             Player player = Player.instance;
+            Vector3 upDirection = player.transform.up;
             Vector3 headLocalPosition = head.position - player.transform.position;
-            float distanceFromFloor = Vector3.Dot(headLocalPosition, Vector3.up);
-            //float distanceFromFloor = Vector3.Dot( head.localPosition, Vector3.up );
+            float distanceFromFloor = Vector3.Dot(headLocalPosition, upDirection);
             capsuleCollider.height = Mathf.Max( capsuleCollider.radius, distanceFromFloor );
-			transform.position = head.position - 0.5f * distanceFromFloor * Vector3.up;
+			transform.position = head.position - (0.5f * distanceFromFloor * upDirection);
 		}
 	}
 }

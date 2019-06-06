@@ -455,7 +455,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   speed: 4
-  shiftSpeed: 16
+  shiftSpeedMultiplier: 4
+  ctrlSpeedMultiplier: 0.2
   showInstructions: 1
 --- !u!1 &114188
 GameObject:
@@ -1423,7 +1424,7 @@ CapsuleCollider:
   m_Radius: 0.25
   m_Height: 1.5
   m_Direction: 1
-  m_Center: {x: 0, y: 0.75, z: 0}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!114 &11455280
 MonoBehaviour:
   m_ObjectHideFlags: 0
