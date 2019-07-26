@@ -50,7 +50,10 @@ namespace Valve.VR.InteractionSystem
 		public float activateObjectTime = 1.0f;
 		public float deactivateObjectTime = 1.0f;
 
-		[Header( "Audio Sources" )]
+        [Header( "Audio Handler" )]
+        public TeleportSounds teleportSoundHandler;
+        /*
+        [Header( "Audio Sources" )]
 		public AudioSource pointerAudioSource;
 		public AudioSource loopingAudioSource;
 		public AudioSource headAudioSource;
@@ -63,7 +66,7 @@ namespace Valve.VR.InteractionSystem
 		public AudioClip pointerStopSound;
 		public AudioClip goodHighlightSound;
 		public AudioClip badHighlightSound;
-
+        */
 		[Header( "Debug" )]
 		public bool debugFloor = false;
 		public bool showOffsetReticle = false;
@@ -105,7 +108,7 @@ namespace Valve.VR.InteractionSystem
 		private Transform[] playAreaPreviewCorners;
 		private Transform[] playAreaPreviewSides;
 
-		private float loopingAudioMaxVolume = 0.0f;
+		//private float loopingAudioMaxVolume = 0.0f;
 
 		private Coroutine hintCoroutine = null;
 
@@ -164,7 +167,7 @@ namespace Valve.VR.InteractionSystem
 			teleportArc = GetComponent<TeleportArc>();
 			teleportArc.traceLayerMask = traceLayerMask;
 
-			loopingAudioMaxVolume = loopingAudioSource.volume;
+			//loopingAudioMaxVolume = loopingAudioSource.volume; TODO
 
 			playAreaPreviewCorner.SetActive( false );
 			playAreaPreviewSide.SetActive( false );
@@ -487,9 +490,11 @@ namespace Valve.VR.InteractionSystem
 			onDeactivateObjectTransform.position = pointerEnd;
 			offsetReticleTransform.position = pointerEnd - playerFeetOffset;
 
-			reticleAudioSource.transform.position = pointedAtPosition;
+			//reticleAudioSource.transform.position = pointedAtPosition; TODO
+            teleportSoundHandler.SetReticleAudioSourcePosition(pointedAtPosition);
 
-			pointerLineRenderer.SetPosition( 0, pointerStart );
+
+            pointerLineRenderer.SetPosition( 0, pointerStart );
 			pointerLineRenderer.SetPosition( 1, pointerEnd );
 		}
 
@@ -647,9 +652,12 @@ namespace Valve.VR.InteractionSystem
 				}
 
 				//Stop looping sound
-				loopingAudioSource.Stop();
-				PlayAudioClip( pointerAudioSource, pointerStopSound );
-			}
+				//loopingAudioSource.Stop(); TODO
+				//PlayAudioClip( pointerAudioSource, pointerStopSound ); TODO
+                teleportSoundHandler.StopPointerLoopSound();
+                teleportSoundHandler.PlayPointerStopSound();
+
+            }
 			teleportPointerObject.SetActive( false );
 
 			teleportArc.Hide();
@@ -712,11 +720,16 @@ namespace Valve.VR.InteractionSystem
 				}
 				onActivateObjectTransform.gameObject.SetActive( true );
 
+                /*
 				loopingAudioSource.clip = pointerLoopSound;
 				loopingAudioSource.loop = true;
 				loopingAudioSource.Play();
 				loopingAudioSource.volume = 0.0f;
-			}
+                TODO
+                */
+                teleportSoundHandler.PlayPointerLoopSound();
+
+            }
 
 
 			if ( oldPointerHand )
@@ -739,8 +752,10 @@ namespace Valve.VR.InteractionSystem
 
 			if ( visible && oldPointerHand != pointerHand )
 			{
-				PlayAudioClip( pointerAudioSource, pointerStartSound );
-			}
+				//PlayAudioClip( pointerAudioSource, pointerStartSound ); TODO
+                teleportSoundHandler.PlayPointerStartSound();
+
+            }
 
 			if ( pointerHand )
 			{
@@ -760,11 +775,16 @@ namespace Valve.VR.InteractionSystem
 					pointerHand.HoverLock( null );
 				}
 
-				pointerAudioSource.transform.SetParent( pointerStartTransform );
+                teleportSoundHandler.SetPointerStartTransform(pointerStartTransform);
+
+                /*
+                pointerAudioSource.transform.SetParent( pointerStartTransform );
 				pointerAudioSource.transform.localPosition = Vector3.zero;
 
 				loopingAudioSource.transform.SetParent( pointerStartTransform );
 				loopingAudioSource.transform.localPosition = Vector3.zero;
+                TODO
+                */
 			}
 		}
 
@@ -853,11 +873,16 @@ namespace Valve.VR.InteractionSystem
 			SteamVR_Fade.Start( Color.clear, 0 );
 			SteamVR_Fade.Start( Color.black, currentFadeTime );
 
+            /*
 			headAudioSource.transform.SetParent( player.hmdTransform );
 			headAudioSource.transform.localPosition = Vector3.zero;
 			PlayAudioClip( headAudioSource, teleportSound );
+            TODO
+            */
+            teleportSoundHandler.PlayTeleportGoSound();
 
-			Invoke( "TeleportPlayer", currentFadeTime );
+
+            Invoke( "TeleportPlayer", currentFadeTime );
 		}
 
 
@@ -958,16 +983,24 @@ namespace Valve.VR.InteractionSystem
 					prevPointedAtPosition = pointedAtPosition;
 					PlayPointerHaptic( !hitTeleportMarker.locked );
 
-					PlayAudioClip( reticleAudioSource, goodHighlightSound );
+					//PlayAudioClip( reticleAudioSource, goodHighlightSound ); TODO
+                    teleportSoundHandler.PlayReticleHighlightGoodSound();
 
-					loopingAudioSource.volume = loopingAudioMaxVolume;
-				}
+
+                    //loopingAudioSource.volume = loopingAudioMaxVolume; TODO
+                    teleportSoundHandler.SetPointerLoopVolumePercent(1.0f);
+
+                }
 				else if ( pointedAtTeleportMarker != null )
 				{
-					PlayAudioClip( reticleAudioSource, badHighlightSound );
+					//PlayAudioClip( reticleAudioSource, badHighlightSound ); TODO
+                    teleportSoundHandler.PlayReticleHighlightBadSound();
 
-					loopingAudioSource.volume = 0.0f;
-				}
+
+                    //loopingAudioSource.volume = 0.0f; TODO
+                    teleportSoundHandler.SetPointerLoopVolumePercent(0.0f);
+
+                }
 			}
 			else if ( hitTeleportMarker != null ) //Pointing at the same teleport marker
 			{
