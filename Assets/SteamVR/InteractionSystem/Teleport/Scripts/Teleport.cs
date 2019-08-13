@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
 using System.Collections.Generic;
+using System;
 
 namespace Valve.VR.InteractionSystem
 {
@@ -83,7 +84,8 @@ namespace Valve.VR.InteractionSystem
 
 		private bool visible = false;
 
-		private TeleportMarkerBase[] teleportMarkers;
+		//private TeleportMarkerBase[] teleportMarkers;
+        private List<TeleportMarkerBase> allTeleportMarkers = new List<TeleportMarkerBase>();
 		private TeleportMarkerBase pointedAtTeleportMarker;
 		private TeleportMarkerBase teleportingToMarker;
 		private Vector3 pointedAtPosition;
@@ -150,6 +152,12 @@ namespace Valve.VR.InteractionSystem
 			}
 		}
 
+        public bool Visible {
+            get {
+                return visible;
+            }
+        }
+
 
 		//-------------------------------------------------
 		void Awake()
@@ -181,9 +189,14 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		void Start()
         {
-            teleportMarkers = GameObject.FindObjectsOfType<TeleportMarkerBase>();
+            /*
+             * TODO - I don't think we need this anymore as they *should* be self registering now.
+            TeleportMarkerBase[] activeTeleportMarkers = GameObject.FindObjectsOfType<TeleportMarkerBase>();
+            allTeleportMarkers.AddRange(activeTeleportMarkers);
+            ForAllTeleportMarkers(marker => marker.Registered = true);
+            */
 
-			HidePointer();
+            HidePointer();
 
 			player = InteractionSystem.Player.instance;
 
@@ -200,8 +213,34 @@ namespace Valve.VR.InteractionSystem
 		}
 
 
-		//-------------------------------------------------
-		void OnEnable()
+        public void RegesterTeleportMarker(TeleportMarkerBase teleportMarker) {
+            allTeleportMarkers.Add(teleportMarker);
+            if (Visible) {
+                if (teleportMarker.markerActive && teleportMarker.ShouldActivate(player.feetPositionGuess)) {
+                    teleportMarker.gameObject.SetActive(true);
+                    teleportMarker.Highlight(false);
+                }
+            } else {
+                if (teleportMarker.markerActive) {
+                    teleportMarker.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        public void ForAllTeleportMarkers(Action<TeleportMarkerBase> action) {
+            for (int i = 0; i < allTeleportMarkers.Count; i++) {
+                TeleportMarkerBase teleportMarkerBase = allTeleportMarkers[i];
+                if (teleportMarkerBase == null || teleportMarkerBase.gameObject == null) {
+                    allTeleportMarkers.RemoveAt(i);
+                    i--;
+                } else {
+                    action(teleportMarkerBase);
+                }
+            }
+        }
+
+        //-------------------------------------------------
+        void OnEnable()
 		{
 			chaperoneInfoInitializedAction.enabled = true;
 			OnChaperoneInfoInitialized(); // In case it's already initialized
@@ -219,16 +258,16 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void CheckForSpawnPoint()
 		{
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				TeleportPoint teleportPoint = teleportMarker as TeleportPoint;
-				if ( teleportPoint && teleportPoint.playerSpawnPoint )
-				{
-					teleportingToMarker = teleportMarker;
-					TeleportPlayer();
-					break;
-				}
-			}
+
+            ForAllTeleportMarkers(teleportMarker => {
+                TeleportPoint teleportPoint = teleportMarker as TeleportPoint;
+                if (teleportPoint && teleportPoint.playerSpawnPoint) {
+                    teleportingToMarker = teleportMarker;
+                    TeleportPlayer();
+                    return;
+                }
+            });
+
 		}
 
 
@@ -662,13 +701,11 @@ namespace Valve.VR.InteractionSystem
 
 			teleportArc.Hide();
 
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				if ( teleportMarker != null && teleportMarker.markerActive && teleportMarker.gameObject != null )
-				{
-					teleportMarker.gameObject.SetActive( false );
-				}
-			}
+            ForAllTeleportMarkers(teleportMarker => {
+                if (teleportMarker != null && teleportMarker.markerActive && teleportMarker.gameObject != null) {
+                    teleportMarker.gameObject.SetActive(false);
+                }
+            });
 
 			destinationReticleTransform.gameObject.SetActive( false );
 			invalidReticleTransform.gameObject.SetActive( false );
@@ -702,14 +739,13 @@ namespace Valve.VR.InteractionSystem
 				teleportPointerObject.SetActive( false );
 				teleportArc.Show();
 
-				foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-				{
-					if ( teleportMarker.markerActive && teleportMarker.ShouldActivate( player.feetPositionGuess ) )
-					{
-						teleportMarker.gameObject.SetActive( true );
-						teleportMarker.Highlight( false );
-					}
-				}
+                ForAllTeleportMarkers(teleportMarker => {
+                    if (teleportMarker.markerActive && teleportMarker.ShouldActivate(player.feetPositionGuess)) {
+                        teleportMarker.gameObject.SetActive(true);
+                        teleportMarker.Highlight(false);
+                    }
+                });
+
 
 				startingFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
 				movedFeetFarEnough = false;
@@ -803,11 +839,11 @@ namespace Valve.VR.InteractionSystem
 				meshAlphaPercent = Mathf.Lerp( 0.0f, 1.0f, deltaTime / meshFadeTime );
 			}
 
-			//Tint color for the teleport points
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				teleportMarker.SetAlpha( fullTintAlpha * meshAlphaPercent, meshAlphaPercent );
-			}
+            //Tint color for the teleport points
+            ForAllTeleportMarkers(teleportMarker => {
+                teleportMarker.SetAlpha(fullTintAlpha * meshAlphaPercent, meshAlphaPercent);
+            });
+
 		}
 
 
