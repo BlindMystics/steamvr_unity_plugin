@@ -10,7 +10,7 @@ namespace Valve.VR.InteractionSystem {
         public Camera eventCamera;
         public LineRenderer lineRenderer;
 
-        private int raycastLayerMask;
+        private LayerMask _raycastLayerMask;
 
         private PointerEventData pointerEventData;
         public PointerEventData PointerEventData {
@@ -52,10 +52,10 @@ namespace Valve.VR.InteractionSystem {
         private void Start() {
             hand = GetComponent<Hand>();
 
-            raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
+            _raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
 
             foreach (string layer in PointingInputModule.Instance.additionalUILayers) {
-                raycastLayerMask += 1 << LayerMask.NameToLayer(layer);
+                _raycastLayerMask += 1 << LayerMask.NameToLayer(layer);
             }
 
             pointerEventData = new PointerEventData(PointingInputModule.Instance.EventSystem);
@@ -69,6 +69,15 @@ namespace Valve.VR.InteractionSystem {
             PointingInputModule.Instance.RemoveCanvasInteractionHandler(this);
         }
 
+        private LayerMask RaycastLayerMask {
+            get {
+                if (PointingInputModule.Instance.UseRaycastLayerMaskOverride) {
+                    return PointingInputModule.Instance.RaycastLayerMaskOverride;
+                }
+                return _raycastLayerMask;
+            }
+        }
+
         public void UpdateInteractionHandler() {
             previousGameObject = currentGameObject;
 
@@ -77,7 +86,7 @@ namespace Valve.VR.InteractionSystem {
             Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
 
             RaycastHit hit;
-            bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, raycastLayerMask);
+            bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, RaycastLayerMask);
             if (raycastHit) {
                 GameObject hitObject = hit.collider.gameObject;
                 Canvas canvas = hitObject.GetComponent<Canvas>();

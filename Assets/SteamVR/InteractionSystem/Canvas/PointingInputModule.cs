@@ -7,6 +7,9 @@ namespace Valve.VR.InteractionSystem {
     public class PointingInputModule : BaseInputModule {
         public string[] additionalUILayers;
 
+        private bool useRaycastLayerMaskOverride = false;
+        private LayerMask raycastLayerMaskOverride = new LayerMask();
+
         private static PointingInputModule _instance;
         public static PointingInputModule Instance {
             get {
@@ -16,6 +19,19 @@ namespace Valve.VR.InteractionSystem {
                 return _instance;
             }
         }
+
+        public void SetOverrideRaycastLayer(LayerMask raycastLayerMaskOverride) {
+            this.useRaycastLayerMaskOverride = true;
+            this.raycastLayerMaskOverride = raycastLayerMaskOverride;
+        }
+
+        public void ClearRaycastLayerOverride() {
+            this.useRaycastLayerMaskOverride = false;
+        }
+
+        public bool UseRaycastLayerMaskOverride => useRaycastLayerMaskOverride;
+
+        public LayerMask RaycastLayerMaskOverride => raycastLayerMaskOverride;
 
         public EventSystem EventSystem {
             get => base.eventSystem;
