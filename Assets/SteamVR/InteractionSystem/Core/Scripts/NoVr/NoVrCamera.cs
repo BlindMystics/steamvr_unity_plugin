@@ -11,14 +11,23 @@ namespace Valve.VR.InteractionSystem {
             public KeyCode keyboardKeyCode;
 
             public bool GetState(SteamVR_Input_Sources inputType) {
+                if (noVrSuspended) {
+                    return false;
+                }
                 return NoVrCamera.Instance.ControllingHand == inputType && Input.GetKey(keyboardKeyCode);
             }
 
             public bool GetStateDown(SteamVR_Input_Sources inputType) {
+                if (noVrSuspended) {
+                    return false;
+                }
                 return NoVrCamera.Instance.ControllingHand == inputType && Input.GetKeyDown(keyboardKeyCode);
             }
 
             public bool GetStateUp(SteamVR_Input_Sources inputType) {
+                if (noVrSuspended) {
+                    return false;
+                }
                 if (NoVrCamera.Instance.handChangedFrame) {
                     if (NoVrCamera.Instance.prevFrameControllingHand == inputType) {
                         return true;
@@ -52,6 +61,9 @@ namespace Valve.VR.InteractionSystem {
         }
 
         public HandControlType controlType = HandControlType.FOCUSED_HAND_IN_FRONT_OF_CAMERA;
+
+        private static bool noVrSuspended = false;
+        public bool suspendNoVrInEditor = false;
 
         public static bool NoVrEnabled {
             get {
@@ -90,6 +102,28 @@ namespace Valve.VR.InteractionSystem {
             ControllingHand = controllingHand;
         }
 
+        protected override void OnEnable() {
+            base.OnEnable();
+            noVrSuspended = true;
+#if UNITY_EDITOR
+            noVrSuspended = suspendNoVrInEditor;
+#endif
+        }
+
+        private void Start() {
+            if (noVrSuspended) {
+                if (SteamVrErrorInfoBase.Instance == null) {
+                    Debug.LogWarning("No SteamVrErrorInfoBase.Instance found.");
+                } else {
+                    SteamVrErrorInfoBase.Instance.OnSteamVrInitialisationFailed();
+                }
+            }
+        }
+
+        public static void UnSuspendNoVr() {
+            noVrSuspended = false;
+        }
+
         public static IBooleanRemapping GetRemapping(SteamVR_Action_Boolean vR_Action_Boolean) {
             if (!NoVrEnabled) {
                 return null;
@@ -103,6 +137,11 @@ namespace Valve.VR.InteractionSystem {
         }
 
         protected override void Update() {
+
+            if (noVrSuspended) {
+                return;
+            }
+
             base.Update();
 
             if (Input.GetKeyDown(handSwapKeycode)) {

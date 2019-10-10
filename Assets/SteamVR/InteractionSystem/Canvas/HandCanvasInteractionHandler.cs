@@ -55,7 +55,7 @@ namespace Valve.VR.InteractionSystem {
             _raycastLayerMask = 1 << LayerMask.NameToLayer("UI");
 
             foreach (string layer in PointingInputModule.Instance.additionalUILayers) {
-                _raycastLayerMask += 1 << LayerMask.NameToLayer(layer);
+                _raycastLayerMask |= 1 << LayerMask.NameToLayer(layer);
             }
 
             pointerEventData = new PointerEventData(PointingInputModule.Instance.EventSystem);

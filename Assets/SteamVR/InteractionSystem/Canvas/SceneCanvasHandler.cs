@@ -1,59 +1,48 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 namespace Valve.VR.InteractionSystem {
     public class SceneCanvasHandler : MonoBehaviour {
+
+        public static SceneCanvasHandler Instance {
+            get;
+            private set;
+        }
+
+        private void Awake() {
+            if (Instance != null) {
+                throw new UnityException("Multiple " + GetType().Name + " found!");
+            }
+            Instance = this;
+        }
+
         public bool showCanvasDebugInformation = true;
 
-        private Canvas[] canvases;
-        private int uiLayer;
+        public static bool SetupSingleCanvas(Canvas canvas, out string errorInfo) {
 
-        private void OnEnable() {
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            uiLayer = LayerMask.NameToLayer("UI");
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-#if UNITY_EDITOR
-            if (showCanvasDebugInformation)
-                Debug.Log("A scene was loaded. Updating canvases for SteamVR.");
-#endif
-
-            canvases = FindObjectsOfType<Canvas>();
-
-#if UNITY_EDITOR
-            if (showCanvasDebugInformation)
-                Debug.Log("Found a total of " + canvases.Length + " canvases.");
-#endif
-
-            SetupCanvases();
-        }
-
-        private void SetupCanvases() {
-            foreach(Canvas canvas in canvases) {
-                if (canvas.renderMode != RenderMode.WorldSpace) {
-                    continue;
-                }
-
-                GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>();
-                if (raycaster != null) {
-                    BoxCollider collider = canvas.gameObject.AddComponent<BoxCollider>();
-                    RectTransform rectTransform = canvas.GetComponent<RectTransform>();
-                    collider.size = rectTransform.sizeDelta;
-
-                    canvas.worldCamera = null;
-                } else {
-#if UNITY_EDITOR
-                    if (showCanvasDebugInformation)
-                        Debug.Log("No raycaster found on canvas " + canvas.gameObject.name + ". Not setting up as a VR interface.");
-#endif
-                }
+            if (canvas.renderMode != RenderMode.WorldSpace) {
+                errorInfo = "canvas.renderMode != RenderMode.WorldSpace";
+                return false;
             }
+
+            GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>();
+            if (raycaster != null) {
+                BoxCollider collider = canvas.gameObject.AddComponent<BoxCollider>();
+                RectTransform rectTransform = canvas.GetComponent<RectTransform>();
+                collider.size = rectTransform.sizeDelta;
+
+                canvas.worldCamera = null;
+            } else {
+                errorInfo = "No raycaster found on canvas";
+                return false;
+            }
+
+            errorInfo = "";
+            return true;
+
         }
 
-        private void OnDestroy() {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-        }
     }
 }
