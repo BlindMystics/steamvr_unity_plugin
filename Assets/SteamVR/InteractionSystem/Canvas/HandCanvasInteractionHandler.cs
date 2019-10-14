@@ -83,10 +83,16 @@ namespace Valve.VR.InteractionSystem {
 
             UpdateInteractionButtonState();
 
-            Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
+            bool raycastHit;
+            RaycastHit hit = new RaycastHit();
 
-            RaycastHit hit;
-            bool raycastHit = Physics.Raycast(cameraRay, out hit, 10f, RaycastLayerMask);
+            if (Hand.AttachedObjects.Count > 0) {
+                raycastHit = false;
+            } else {
+                Ray cameraRay = eventCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
+                raycastHit = Physics.Raycast(cameraRay, out hit, 10f, RaycastLayerMask);
+            }
+            
             if (raycastHit) {
                 GameObject hitObject = hit.collider.gameObject;
                 Canvas canvas = hitObject.GetComponent<Canvas>();
