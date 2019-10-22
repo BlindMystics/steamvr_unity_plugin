@@ -76,6 +76,7 @@ namespace Valve.VR.InteractionSystem
         private float noSteamVRFallbackInteractorDistance = -1.0f;
         private float noSteamVRFallbackHandDistFromCamera = 1.0f;
         public Vector3 noSteamVRFallbackHandRotationOffset = new Vector3();
+        public GameObject noSteamVrFallbackHandRender;
 
         public GameObject renderModelPrefab;
         protected List<RenderModel> renderModels = new List<RenderModel>();
@@ -847,6 +848,9 @@ namespace Valve.VR.InteractionSystem
         private void CleanUpAttachedObjectStack()
         {
             attachedObjects.RemoveAll(l => l.attachedObject == null);
+            if (noSteamVRFallbackCamera) {
+                noSteamVrFallbackHandRender?.SetActive(attachedObjects.Count == 0);
+            }
         }
 
 
