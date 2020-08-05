@@ -70,13 +70,13 @@ namespace Valve.VR
         protected int deviceIndex = -1;
 
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);
-        
+
 
         protected virtual void Start()
         {
             if (poseAction == null)
             {
-                Debug.LogError("<b>[SteamVR]</b> No pose action set for this component");
+                Debug.LogError("<b>[SteamVR]</b> No pose action set for this component", this);
                 return;
             }
 
@@ -202,7 +202,7 @@ namespace Valve.VR
         }
 
         /// <summary>
-        /// Returns the device index for the device bound to the pose. 
+        /// Returns the device index for the device bound to the pose.
         /// </summary>
         public int GetDeviceIndex()
         {
@@ -250,7 +250,7 @@ namespace Valve.VR
         }
 
         /// <summary>
-        /// Gets the localized name of the device that the action corresponds to. 
+        /// Gets the localized name of the device that the action corresponds to.
         /// </summary>
         /// <param name="localizedParts">
         /// <list type="bullet">
