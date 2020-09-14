@@ -36,6 +36,12 @@ namespace Valve.VR.InteractionSystem {
             }
         }
 
+        /// <summary>
+        /// Returns true the frame that the boolean is set to true.
+        /// </summary>
+        /// <param name="vR_Action_Boolean"></param>
+        /// <param name="inputType"></param>
+        /// <returns></returns>
         public static bool GetStateDown(SteamVR_Action_Boolean vR_Action_Boolean, SteamVR_Input_Sources inputType) {
 
             if (overiddenActions.ContainsKey(vR_Action_Boolean)) {
@@ -56,6 +62,12 @@ namespace Valve.VR.InteractionSystem {
 
         }
 
+        /// <summary>
+        /// Returns true the frame that the boolean is set to false
+        /// </summary>
+        /// <param name="vR_Action_Boolean"></param>
+        /// <param name="inputType"></param>
+        /// <returns></returns>
         public static bool GetStateUp(SteamVR_Action_Boolean vR_Action_Boolean, SteamVR_Input_Sources inputType) {
 
             if (overiddenActions.ContainsKey(vR_Action_Boolean)) {
@@ -76,6 +88,12 @@ namespace Valve.VR.InteractionSystem {
 
         }
 
+        /// <summary>
+        /// Returns the state of the boolean (IE true == pressed & false == not pressed).
+        /// </summary>
+        /// <param name="vR_Action_Boolean"></param>
+        /// <param name="inputType"></param>
+        /// <returns></returns>
         public static bool GetState(SteamVR_Action_Boolean vR_Action_Boolean, SteamVR_Input_Sources inputType) {
 
             if (overiddenActions.ContainsKey(vR_Action_Boolean)) {
