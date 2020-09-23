@@ -401,7 +401,7 @@ namespace Valve.VR.InteractionSystem
 		public static void ShowAndCreateNewHint(Hand hand, ISteamVR_Action_In forAction, string hintTextToShow) {
 			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
 			if (controllerButtonHints == null) {
-				Debug.LogError(string.Format("No controller hints for hand: {0}", hand.handType));
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
 				return;
 			}
 			controllerButtonHints.ShowAndCreateNewHint(forAction, hintTextToShow);
