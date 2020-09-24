@@ -17,6 +17,9 @@ namespace Valve.VR.InteractionSystem
 		public float shiftSpeedMultiplier = 4.0f;
         public float ctrlSpeedMultiplier = 0.2f;
         public bool showInstructions = true;
+		public float lookSpeedMultiplierHorizontal = 0.25f;
+		public float lookSpeedMultiplierVertical = 0.25f;
+		public float verticalLimitOffset = 10.0f; //Degrees from -90 -> 90.
 
 		[Header("Axes")]
 		[SerializeField] private bool upDownControlEnabled = false;
@@ -24,6 +27,7 @@ namespace Valve.VR.InteractionSystem
 		private Vector3 startEulerAngles;
 		private Vector3 startMousePosition;
 		private float realTime;
+		private bool lookLockedToMouse = false;
 
 		//-------------------------------------------------
 		protected virtual void OnEnable()
@@ -90,17 +94,35 @@ namespace Valve.VR.InteractionSystem
 
 			Vector3 mousePosition = Input.mousePosition;
 
-			if ( Input.GetMouseButtonDown( 1 ) /* right mouse */)
-			{
-				startMousePosition = mousePosition;
-				startEulerAngles = transform.localEulerAngles;
+			if (Input.GetKeyDown(KeyCode.RightAlt)) {
+				lookLockedToMouse = !lookLockedToMouse;
 			}
 
-			if ( Input.GetMouseButton( 1 ) /* right mouse */)
-			{
-				Vector3 offset = mousePosition - startMousePosition;
-				transform.localEulerAngles = startEulerAngles + new Vector3( -offset.y * 360.0f / Screen.height, offset.x * 360.0f / Screen.width, 0.0f );
+			bool updateLookRotation = lookLockedToMouse || 
+				Input.GetMouseButton(1); /* right mouse */
+
+			if (updateLookRotation) {
+				Cursor.lockState = CursorLockMode.Locked;
+				Vector3 currentForward = transform.localRotation * Vector3.forward;
+				Vector2 xzComponent = new Vector2(currentForward.x, currentForward.z);
+				float phi = -(Mathf.Atan2(currentForward.y, xzComponent.magnitude) * Mathf.Rad2Deg);
+				float theta = -((Mathf.Atan2(currentForward.z, currentForward.x) * Mathf.Rad2Deg) - 90.0f);
+
+				float horizontal = Input.GetAxis("Camera Horizontal") * lookSpeedMultiplierHorizontal * (1000.0f / Screen.width);
+				float vertical = Input.GetAxis("Camera Vertical") * lookSpeedMultiplierVertical * (1000.0f / Screen.height);
+
+				phi -= vertical;
+				theta += horizontal;
+
+				phi = Mathf.Clamp(phi, -90.0f + verticalLimitOffset, 90.0f - verticalLimitOffset);
+
+				Quaternion newVertical = Quaternion.Euler(phi, 0f, 0f);
+				Quaternion newHorizontal = Quaternion.Euler(0f, theta, 0f);
+				transform.localRotation = newHorizontal * newVertical;
+			} else {
+				Cursor.lockState = CursorLockMode.None;
 			}
+
 		}
 
 
