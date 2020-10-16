@@ -957,20 +957,28 @@ namespace Valve.VR.InteractionSystem
 					{
 						teleportPosition = raycastHit.point;
 					}
-				}
+}
 			}
 
 			if ( teleportingToMarker.ShouldMovePlayer() )
 			{
 
-			    //Valve implementation - maintains the relative offset so you physically always end up in the middle of the teleport position after the teleport.
-			    /*
+				//Valve implementation - maintains the relative offset so you physically always end up in the middle of the teleport position after the teleport.
+				/*
 			    Vector3 playerFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
                 player.trackingOriginTransform.position = teleportPosition + playerFeetOffset;
 			    */
-			    //Virtual Ricochet implementation - puts your tracking center at the center of the teleport position, maintains your relative offset from the center.
-                Vector3 teleportPositionOffset = teleportPosition - player.trackingOriginTransform.position;
-                player.trackingOriginTransform.position = teleportPosition;
+				//Virtual Ricochet implementation - puts your tracking center at the center of the teleport position, maintains your relative offset from the center.
+
+				//New method with offsets:
+				player.CalculateTeleportToWithOffset(teleportPosition, out Vector3 newPosition, out Quaternion newRotation);
+				Vector3 teleportPositionOffset = newPosition - player.trackingOriginTransform.position;
+				player.trackingOriginTransform.position = newPosition;
+				player.trackingOriginTransform.rotation = newRotation;
+
+				//Old method, no offsets:
+				//Vector3 teleportPositionOffset = teleportPosition - player.trackingOriginTransform.position;
+				//player.trackingOriginTransform.position = teleportPosition;
 
                 //Teleport everything that the player is holding onto as well.
                 //Valve implementation - This might do what Pete's implementation does, just in less code, needs testing.

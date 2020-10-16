@@ -11,6 +11,61 @@ using System;
 
 namespace Valve.VR.InteractionSystem
 {
+
+	public struct PlayerTeleportOffset {
+		public float thetaRad;
+		public float xOffset;
+		public float zOffset;
+
+		public Vector3 PositionOffset => new Vector3(xOffset, 0f, zOffset);
+
+		public Quaternion RotationalOffset => Quaternion.Euler(0f, thetaRad * Mathf.Rad2Deg, 0f);
+
+		public PlayerTeleportOffset(float thetaRad, float xOffset, float zOffset) {
+			this.thetaRad = thetaRad;
+			this.xOffset = xOffset;
+			this.zOffset = zOffset;
+		}
+
+		public static PlayerTeleportOffset Zero => new PlayerTeleportOffset(0f, 0f, 0f);
+
+		public static PlayerTeleportOffset RecalculateOffset(Player player, 
+			Vector3 desiredForwards) {
+
+			//Angle:
+			float desiredForwardTheta = NormaliseAngleRad(Mathf.Atan2(-desiredForwards.x, desiredForwards.z));
+			Vector3 currentForwards = desiredForwards;
+			Transform hmd = player.hmdTransform;
+			if (hmd) {
+				currentForwards = hmd.forward;
+			}
+			float currentForwardTheta = NormaliseAngleRad(Mathf.Atan2(-currentForwards.x, currentForwards.z)
+				+ player.PlayerTeleportOffset.thetaRad);
+			float thetaRad = currentForwardTheta - desiredForwardTheta;
+			
+			//Position offset:
+			Vector3 feetPositionGuess = player.feetPositionGuess;
+			Vector3 feetPositionOffset = (Quaternion.Inverse(player.PlayerTeleportOffset.RotationalOffset)) * 
+				(feetPositionGuess - player.trackingOriginTransform.position);
+
+			Vector3 xzOffset = new Vector3(feetPositionOffset.x, 0f, feetPositionOffset.z);
+			float thetaDegrees = Mathf.Rad2Deg * thetaRad;
+			Quaternion newRotation = Quaternion.Euler(0f, thetaDegrees, 0f);
+			Vector3 newOffset = -(newRotation * xzOffset);
+
+			return new PlayerTeleportOffset(thetaRad, newOffset.x, newOffset.z);
+		}
+
+		private static float NormaliseAngleRad(float angleRad) {
+			float result = angleRad % (2.0f * Mathf.PI);
+			if (result < 0) {
+				result = (2.0f * Mathf.PI) + result;
+			}
+			return result;
+		}
+
+	}
+
     //-------------------------------------------------------------------------
     // Singleton representing the local VR player/user, with methods for getting
     // the player's hands, head, tracking origin, and guesses for various properties.
@@ -52,7 +107,20 @@ namespace Valve.VR.InteractionSystem
 
         private OnInitialisationCompleteDelegate onInitialisationCompleteDelegate = null;
 
-        private void OnInitialisationComplete() {
+		private PlayerTeleportOffset _playerTeleportOffset = PlayerTeleportOffset.Zero;
+
+		public PlayerTeleportOffset PlayerTeleportOffset {
+			get {
+				return _playerTeleportOffset;
+			}
+			set {
+				PlayerTeleportOffset previousOffset = _playerTeleportOffset;
+				_playerTeleportOffset = value;
+				UpdateViewOffset(previousOffset);
+			}
+		}
+
+		private void OnInitialisationComplete() {
             initialisationComplete = true;
             onInitialisationCompleteDelegate?.Invoke();
             onInitialisationCompleteDelegate = null;
@@ -455,5 +523,32 @@ namespace Valve.VR.InteractionSystem
 		{
 			//Do something appropriate here
 		}
+
+		public void CalculateTeleportToWithOffset(Vector3 position,
+			out Vector3 newPosition, out Quaternion newRotation) {
+			CalculateTeleportToWithOffset(position, PlayerTeleportOffset, out newPosition, out newRotation);
+		}
+
+		public void CalculateTeleportToWithOffset(Vector3 position, PlayerTeleportOffset teleportOffset,
+			out Vector3 newPosition, out Quaternion newRotation) {
+			newPosition = position + teleportOffset.PositionOffset;
+			newRotation = teleportOffset.RotationalOffset;
+		}
+
+		public void SetNewViewOffset() {
+			PlayerTeleportOffset = PlayerTeleportOffset.RecalculateOffset(this, Vector3.forward);
+		}
+
+		public void ResetViewOffset() {
+			PlayerTeleportOffset = PlayerTeleportOffset.Zero;
+		}
+
+		private void UpdateViewOffset(PlayerTeleportOffset previousOffset) {
+			Vector3 tempSetPosition = trackingOriginTransform.position - previousOffset.PositionOffset;
+			CalculateTeleportToWithOffset(tempSetPosition, out Vector3 newPosition, out Quaternion newRotation);
+			trackingOriginTransform.position = newPosition;
+			trackingOriginTransform.rotation = newRotation;
+		}
+
 	}
 }
