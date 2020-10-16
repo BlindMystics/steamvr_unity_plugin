@@ -5,6 +5,11 @@ using UnityEngine.UI;
 
 namespace Valve.VR.InteractionSystem {
     public class HandCanvasInteractionHandler : MonoBehaviour {
+
+        public static float globalHandAngleOffsetDegrees = 0f;
+
+        private float _currentHandAngleDegrees = 0f;
+
         private SteamVR_Action_Boolean interactUI = SteamVR_Input.GetAction<SteamVR_Action_Boolean>("InteractUI");
 
         public Camera eventCamera;
@@ -79,6 +84,13 @@ namespace Valve.VR.InteractionSystem {
         }
 
         public void UpdateInteractionHandler() {
+
+            if (globalHandAngleOffsetDegrees != _currentHandAngleDegrees) {
+                _currentHandAngleDegrees = globalHandAngleOffsetDegrees;
+                Quaternion rotationAmount = Quaternion.Euler(_currentHandAngleDegrees, 0f, 0f);
+                eventCamera.transform.localRotation = rotationAmount;
+            }
+
             previousGameObject = currentGameObject;
 
             UpdateInteractionButtonState();
