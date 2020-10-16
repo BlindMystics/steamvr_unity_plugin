@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using System.Text;
+using System;
 
 namespace Valve.VR.InteractionSystem
 {
@@ -404,7 +405,11 @@ namespace Valve.VR.InteractionSystem
 				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
 				return;
 			}
-			controllerButtonHints.ShowAndCreateNewHint(forAction, hintTextToShow);
+			try {
+				controllerButtonHints.ShowAndCreateNewHint(forAction, hintTextToShow);
+			} catch (Exception e) {
+				Debug.LogException(e);
+			}
 		}
 
 		public void ShowAndCreateNewHint(ISteamVR_Action_In forAction, string hintTextToShow) {
@@ -533,6 +538,10 @@ namespace Valve.VR.InteractionSystem
 
 		private ActionHintInfo CreateNewHintInfo(ISteamVR_Action_In action, Transform buttonTransform, List<MeshRenderer> buttonRenderers) {
 			ActionHintInfo hintInfo = new ActionHintInfo();
+
+			if (buttonTransform == null) {
+				Debug.LogError("buttonTransform is null!");
+			}
 
 			hintInfo.componentName = buttonTransform.name;
 			hintInfo.renderers = buttonRenderers;

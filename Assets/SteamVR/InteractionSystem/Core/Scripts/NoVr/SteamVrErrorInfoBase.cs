@@ -1,9 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public abstract class SteamVrErrorInfoBase : MonoBehaviour {
-    
+
+
     public static SteamVrErrorInfoBase Instance {
         get;
         private set;
