@@ -408,7 +408,9 @@ namespace Valve.VR.InteractionSystem
 			try {
 				controllerButtonHints.ShowAndCreateNewHint(forAction, hintTextToShow);
 			} catch (Exception e) {
-				Debug.LogException(e);
+				if (controllerButtonHints.debugHints) {
+					Debug.LogException(e);
+				}
 			}
 		}
 
@@ -418,7 +420,9 @@ namespace Valve.VR.InteractionSystem
 			//I think this would require changing how the dictionary operates.
 
 			if (!forAction.GetActive(inputSource)) {
-				Debug.LogWarning(string.Format("Action {0} is not active, no hint will be displayed", forAction));
+				if (debugHints) {
+					Debug.LogWarning(string.Format("Action {0} is not active, no hint will be displayed", forAction));
+				}
 				return;
 			}
 
@@ -428,7 +432,9 @@ namespace Valve.VR.InteractionSystem
 			} else {
 				actionHintInfo = CreateNewHintInfo(forAction);
 				if (actionHintInfo == null) {
-					Debug.LogError(string.Format("Failed to create hint for action {0}", forAction));
+					if (debugHints) {
+						Debug.LogError(string.Format("Failed to create hint for action {0}", forAction));
+					}
 					return;
 				}
 			}
@@ -510,7 +516,9 @@ namespace Valve.VR.InteractionSystem
 			}
 
 			if (!valid) {
-				Debug.LogWarning(string.Format("Couldn't find buttonTransform for {0}", forAction.GetShortName()));
+				if (debugHints) {
+					Debug.LogWarning(string.Format("Couldn't find buttonTransform for {0}", forAction.GetShortName()));
+				}
 				return null;
 			}
 
@@ -540,7 +548,9 @@ namespace Valve.VR.InteractionSystem
 			ActionHintInfo hintInfo = new ActionHintInfo();
 
 			if (buttonTransform == null) {
-				Debug.LogError("buttonTransform is null!");
+				if (debugHints) {
+					Debug.LogError("buttonTransform is null!");
+				}
 			}
 
 			hintInfo.componentName = buttonTransform.name;
@@ -660,7 +670,7 @@ namespace Valve.VR.InteractionSystem
 		public static void HideAndDestroyHint(Hand hand, ISteamVR_Action_In forAction) {
 			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
 			if (controllerButtonHints == null) {
-				Debug.LogError(string.Format("No controller hints for hand: {0}", hand.handType));
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
 				return;
 			}
 			controllerButtonHints.HideAndDestroyHint(forAction);
@@ -679,7 +689,7 @@ namespace Valve.VR.InteractionSystem
 		public static void HideAndDestroyAllHints(Hand hand) {
 			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
 			if (controllerButtonHints == null) {
-				Debug.LogError(string.Format("No controller hints for hand: {0}", hand.handType));
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
 				return;
 			}
 			controllerButtonHints.HideAndDestroyAllHints();
