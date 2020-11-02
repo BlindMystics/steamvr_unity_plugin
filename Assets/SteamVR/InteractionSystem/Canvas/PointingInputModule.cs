@@ -72,18 +72,25 @@ namespace Valve.VR.InteractionSystem {
                 interactionHandler.UpdateInteractionHandler();
                 interactionHandler.ShowPointer(false);
 
-                if (currentInteractionHandler == null ||
-                    interactionHandler.LastInteractTime > currentInteractionHandler.LastInteractTime) {
-                    currentInteractionHandler = interactionHandler;
+                if (currentInteractionHandler != interactionHandler && interactionHandler.CanRaycast) {
+                    if (currentInteractionHandler == null) {
+                        currentInteractionHandler = interactionHandler;
+                    } else if (!currentInteractionHandler.CanRaycast) {
+                        currentInteractionHandler = interactionHandler;
+                    } else if(interactionHandler.LastInteractTime > currentInteractionHandler.LastInteractTime){
+                        currentInteractionHandler = interactionHandler;
+                    }
                 }
             }
 
             if (currentInteractionHandler != null) {
+                if (currentInteractionHandler.CanRaycast) {
+                    currentInteractionHandler.ShowPointer(true);
+                }
                 if (currentInteractionHandler.CurrentCanvas == null) {
                     return;
                 } else {
                     currentInteractionHandler.ClaimCanvas();
-                    currentInteractionHandler.ShowPointer(true);
                 }
 
                 PointerEventData currentPointerEventData = currentInteractionHandler.PointerEventData;

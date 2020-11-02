@@ -131,6 +131,11 @@ namespace Valve.VR.InteractionSystem {
                 });
 
                 RaycastCanvas();
+            } else {
+                lineRenderer.SetPositions(new Vector3[] {
+                    new Vector3(),
+                    lineRenderer.transform.InverseTransformDirection(eventCamera.transform.forward) * 5f
+                });
             }
         }
 
@@ -170,7 +175,9 @@ namespace Valve.VR.InteractionSystem {
 
             List<RaycastResult> raycastResults = new List<RaycastResult>();
 
-            raycaster.Raycast(pointerEventData, raycastResults);
+            if (CanRaycast) {
+                raycaster.Raycast(pointerEventData, raycastResults);
+            }
             
             if (raycastResults.Count > 0) {
                 pointerEventData.pointerCurrentRaycast = raycastResults[0];
@@ -178,6 +185,12 @@ namespace Valve.VR.InteractionSystem {
             } else {
                 pointerEventData.pointerCurrentRaycast = new RaycastResult();
                 currentGameObject = null;
+            }
+        }
+
+        public bool CanRaycast {
+            get {
+                return hand.currentAttachedObject == null;
             }
         }
 
