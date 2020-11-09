@@ -17,6 +17,19 @@ namespace Valve.VR.InteractionSystem
 	public class ControllerButtonHints : MonoBehaviour
 	{
 		public Material controllerMaterial;
+		public Material urpControllerMaterial;
+		public Material usingMaterial
+		{
+			get
+			{
+#if UNITY_URP
+				return urpControllerMaterial;
+#else
+				return controllerMaterial;
+#endif
+			}
+		}
+
 		public Color flashColor = new Color( 1.0f, 0.557f, 0.0f );
 		public GameObject textHintPrefab;
 
@@ -86,7 +99,12 @@ namespace Valve.VR.InteractionSystem
         void Awake()
 		{
 			renderModelLoadedAction = SteamVR_Events.RenderModelLoadedAction( OnRenderModelLoaded );
+
+#if UNITY_URP
+			colorID = Shader.PropertyToID( "_BaseColor" );
+#else
 			colorID = Shader.PropertyToID( "_Color" );
+#endif
 		}
 
 
@@ -780,11 +798,11 @@ namespace Valve.VR.InteractionSystem
 			for ( int i = 0; i < renderers.Count; i++ )
 			{
 				Texture mainTexture = renderers[i].material.mainTexture;
-				renderers[i].sharedMaterial = controllerMaterial;
+				renderers[i].sharedMaterial = usingMaterial;
 				renderers[i].material.mainTexture = mainTexture;
 
 				// This is to poke unity into setting the correct render queue for the model
-				renderers[i].material.renderQueue = controllerMaterial.shader.renderQueue;
+				renderers[i].material.renderQueue = usingMaterial.shader.renderQueue;
 			}
 
 			for ( int i = 0; i < actions.Length; i++ )
@@ -820,7 +838,7 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void HideButtonHint( params ISteamVR_Action_In_Source[] actions )
 		{
-			Color baseColor = controllerMaterial.GetColor( colorID );
+			Color baseColor = usingMaterial.GetColor( colorID );
 			for ( int i = 0; i < actions.Length; i++ )
 			{
 				if ( actionHintInfos.ContainsKey(actions[i] ) )
@@ -908,7 +926,7 @@ namespace Valve.VR.InteractionSystem
 		{
 			if ( renderModel != null && renderModel.gameObject.activeInHierarchy && flashingRenderers.Count > 0 )
 			{
-				Color baseColor = controllerMaterial.GetColor( colorID );
+				Color baseColor = usingMaterial.GetColor( colorID );
 
 				float flash = ( Time.realtimeSinceStartup - startTime ) * Mathf.PI * 2.0f;
 				flash = Mathf.Cos( flash );
