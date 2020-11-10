@@ -7,13 +7,20 @@
 using UnityEngine;
 using UnityEngine.Events;
 using System.Collections;
+using System.Collections.Generic;
+using System;
 
 namespace Valve.VR.InteractionSystem
 {
+    [System.Serializable]
+    public class TeleportIneligibleEvent : UnityEvent<Hand> {
+    }
+
 	//-------------------------------------------------------------------------
 	public class Teleport : MonoBehaviour
     {
-        public SteamVR_Action_Boolean teleportAction = SteamVR_Input.GetAction<SteamVR_Action_Boolean>("Teleport");
+
+        public SteamVR_Action_Boolean_List teleportActions = new SteamVR_Action_Boolean_List("Teleport");
 
         public LayerMask traceLayerMask;
 		public LayerMask floorFixupTraceLayerMask;
@@ -44,7 +51,10 @@ namespace Valve.VR.InteractionSystem
 		public float activateObjectTime = 1.0f;
 		public float deactivateObjectTime = 1.0f;
 
-		[Header( "Audio Sources" )]
+        [Header( "Audio Handler" )]
+        public TeleportSounds teleportSoundHandler;
+        /*
+        [Header( "Audio Sources" )]
 		public AudioSource pointerAudioSource;
 		public AudioSource loopingAudioSource;
 		public AudioSource headAudioSource;
@@ -57,7 +67,7 @@ namespace Valve.VR.InteractionSystem
 		public AudioClip pointerStopSound;
 		public AudioClip goodHighlightSound;
 		public AudioClip badHighlightSound;
-
+        */
 		[Header( "Debug" )]
 		public bool debugFloor = false;
 		public bool showOffsetReticle = false;
@@ -74,7 +84,8 @@ namespace Valve.VR.InteractionSystem
 
 		private bool visible = false;
 
-		private TeleportMarkerBase[] teleportMarkers;
+		//private TeleportMarkerBase[] teleportMarkers;
+        private List<TeleportMarkerBase> allTeleportMarkers = new List<TeleportMarkerBase>();
 		private TeleportMarkerBase pointedAtTeleportMarker;
 		private TeleportMarkerBase teleportingToMarker;
 		private Vector3 pointedAtPosition;
@@ -99,7 +110,7 @@ namespace Valve.VR.InteractionSystem
 		private Transform[] playAreaPreviewCorners;
 		private Transform[] playAreaPreviewSides;
 
-		private float loopingAudioMaxVolume = 0.0f;
+		//private float loopingAudioMaxVolume = 0.0f;
 
 		private Coroutine hintCoroutine = null;
 
@@ -112,9 +123,12 @@ namespace Valve.VR.InteractionSystem
 
 		SteamVR_Events.Action chaperoneInfoInitializedAction;
 
-		// Events
+        private UnityEvent onTeleportPlayer = new UnityEvent();
+        private TeleportIneligibleEvent onTeleportIneligible = new TeleportIneligibleEvent();
 
-		public static SteamVR_Events.Event< float > ChangeScene = new SteamVR_Events.Event< float >();
+        // Events
+
+        public static SteamVR_Events.Event< float > ChangeScene = new SteamVR_Events.Event< float >();
 		public static SteamVR_Events.Action< float > ChangeSceneAction( UnityAction< float > action ) { return new SteamVR_Events.Action< float >( ChangeScene, action ); }
 
 		public static SteamVR_Events.Event< TeleportMarkerBase > Player = new SteamVR_Events.Event< TeleportMarkerBase >();
@@ -138,6 +152,12 @@ namespace Valve.VR.InteractionSystem
 			}
 		}
 
+        public bool Visible {
+            get {
+                return visible;
+            }
+        }
+
 
 		//-------------------------------------------------
 		void Awake()
@@ -155,7 +175,7 @@ namespace Valve.VR.InteractionSystem
 			teleportArc = GetComponent<TeleportArc>();
 			teleportArc.traceLayerMask = traceLayerMask;
 
-			loopingAudioMaxVolume = loopingAudioSource.volume;
+			//loopingAudioMaxVolume = loopingAudioSource.volume; TODO
 
 			playAreaPreviewCorner.SetActive( false );
 			playAreaPreviewSide.SetActive( false );
@@ -169,9 +189,14 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		void Start()
         {
-            teleportMarkers = GameObject.FindObjectsOfType<TeleportMarkerBase>();
+            /*
+             * TODO - I don't think we need this anymore as they *should* be self registering now.
+            TeleportMarkerBase[] activeTeleportMarkers = GameObject.FindObjectsOfType<TeleportMarkerBase>();
+            allTeleportMarkers.AddRange(activeTeleportMarkers);
+            ForAllTeleportMarkers(marker => marker.Registered = true);
+            */
 
-			HidePointer();
+            HidePointer();
 
 			player = InteractionSystem.Player.instance;
 
@@ -184,12 +209,38 @@ namespace Valve.VR.InteractionSystem
 
 			CheckForSpawnPoint();
 
-			Invoke( "ShowTeleportHint", 5.0f );
+			//Invoke( "ShowTeleportHint", 5.0f );
 		}
 
 
-		//-------------------------------------------------
-		void OnEnable()
+        public void RegesterTeleportMarker(TeleportMarkerBase teleportMarker) {
+            allTeleportMarkers.Add(teleportMarker);
+            if (Visible) {
+                if (teleportMarker.markerActive && teleportMarker.ShouldActivate(player.feetPositionGuess)) {
+                    teleportMarker.gameObject.SetActive(true);
+                    teleportMarker.Highlight(false);
+                }
+            } else {
+                if (teleportMarker.markerActive) {
+                    teleportMarker.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        public void ForAllTeleportMarkers(Action<TeleportMarkerBase> action) {
+            for (int i = 0; i < allTeleportMarkers.Count; i++) {
+                TeleportMarkerBase teleportMarkerBase = allTeleportMarkers[i];
+                if (teleportMarkerBase == null || teleportMarkerBase.gameObject == null) {
+                    allTeleportMarkers.RemoveAt(i);
+                    i--;
+                } else {
+                    action(teleportMarkerBase);
+                }
+            }
+        }
+
+        //-------------------------------------------------
+        void OnEnable()
 		{
 			chaperoneInfoInitializedAction.enabled = true;
 			OnChaperoneInfoInitialized(); // In case it's already initialized
@@ -207,16 +258,16 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private void CheckForSpawnPoint()
 		{
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				TeleportPoint teleportPoint = teleportMarker as TeleportPoint;
-				if ( teleportPoint && teleportPoint.playerSpawnPoint )
-				{
-					teleportingToMarker = teleportMarker;
-					TeleportPlayer();
-					break;
-				}
-			}
+
+            ForAllTeleportMarkers(teleportMarker => {
+                TeleportPoint teleportPoint = teleportMarker as TeleportPoint;
+                if (teleportPoint && teleportPoint.playerSpawnPoint) {
+                    teleportingToMarker = teleportMarker;
+                    TeleportPlayer();
+                    return;
+                }
+            });
+
 		}
 
 
@@ -478,9 +529,11 @@ namespace Valve.VR.InteractionSystem
 			onDeactivateObjectTransform.position = pointerEnd;
 			offsetReticleTransform.position = pointerEnd - playerFeetOffset;
 
-			reticleAudioSource.transform.position = pointedAtPosition;
+			//reticleAudioSource.transform.position = pointedAtPosition; TODO
+            teleportSoundHandler.SetReticleAudioSourcePosition(pointedAtPosition);
 
-			pointerLineRenderer.SetPosition( 0, pointerStart );
+
+            pointerLineRenderer.SetPosition( 0, pointerStart );
 			pointerLineRenderer.SetPosition( 1, pointerEnd );
 		}
 
@@ -638,20 +691,21 @@ namespace Valve.VR.InteractionSystem
 				}
 
 				//Stop looping sound
-				loopingAudioSource.Stop();
-				PlayAudioClip( pointerAudioSource, pointerStopSound );
-			}
+				//loopingAudioSource.Stop(); TODO
+				//PlayAudioClip( pointerAudioSource, pointerStopSound ); TODO
+                teleportSoundHandler.StopPointerLoopSound();
+                teleportSoundHandler.PlayPointerStopSound();
+
+            }
 			teleportPointerObject.SetActive( false );
 
 			teleportArc.Hide();
 
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				if ( teleportMarker != null && teleportMarker.markerActive && teleportMarker.gameObject != null )
-				{
-					teleportMarker.gameObject.SetActive( false );
-				}
-			}
+            ForAllTeleportMarkers(teleportMarker => {
+                if (teleportMarker != null && teleportMarker.markerActive && teleportMarker.gameObject != null) {
+                    teleportMarker.gameObject.SetActive(false);
+                }
+            });
 
 			destinationReticleTransform.gameObject.SetActive( false );
 			invalidReticleTransform.gameObject.SetActive( false );
@@ -685,14 +739,13 @@ namespace Valve.VR.InteractionSystem
 				teleportPointerObject.SetActive( false );
 				teleportArc.Show();
 
-				foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-				{
-					if ( teleportMarker.markerActive && teleportMarker.ShouldActivate( player.feetPositionGuess ) )
-					{
-						teleportMarker.gameObject.SetActive( true );
-						teleportMarker.Highlight( false );
-					}
-				}
+                ForAllTeleportMarkers(teleportMarker => {
+                    if (teleportMarker.markerActive && teleportMarker.ShouldActivate(player.feetPositionGuess)) {
+                        teleportMarker.gameObject.SetActive(true);
+                        teleportMarker.Highlight(false);
+                    }
+                });
+
 
 				startingFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
 				movedFeetFarEnough = false;
@@ -703,11 +756,16 @@ namespace Valve.VR.InteractionSystem
 				}
 				onActivateObjectTransform.gameObject.SetActive( true );
 
+                /*
 				loopingAudioSource.clip = pointerLoopSound;
 				loopingAudioSource.loop = true;
 				loopingAudioSource.Play();
 				loopingAudioSource.volume = 0.0f;
-			}
+                TODO
+                */
+                teleportSoundHandler.PlayPointerLoopSound();
+
+            }
 
 
 			if ( oldPointerHand )
@@ -730,8 +788,10 @@ namespace Valve.VR.InteractionSystem
 
 			if ( visible && oldPointerHand != pointerHand )
 			{
-				PlayAudioClip( pointerAudioSource, pointerStartSound );
-			}
+				//PlayAudioClip( pointerAudioSource, pointerStartSound ); TODO
+                teleportSoundHandler.PlayPointerStartSound();
+
+            }
 
 			if ( pointerHand )
 			{
@@ -751,11 +811,16 @@ namespace Valve.VR.InteractionSystem
 					pointerHand.HoverLock( null );
 				}
 
-				pointerAudioSource.transform.SetParent( pointerStartTransform );
+                teleportSoundHandler.SetPointerStartTransform(pointerStartTransform);
+
+                /*
+                pointerAudioSource.transform.SetParent( pointerStartTransform );
 				pointerAudioSource.transform.localPosition = Vector3.zero;
 
 				loopingAudioSource.transform.SetParent( pointerStartTransform );
 				loopingAudioSource.transform.localPosition = Vector3.zero;
+                TODO
+                */
 			}
 		}
 
@@ -774,11 +839,11 @@ namespace Valve.VR.InteractionSystem
 				meshAlphaPercent = Mathf.Lerp( 0.0f, 1.0f, deltaTime / meshFadeTime );
 			}
 
-			//Tint color for the teleport points
-			foreach ( TeleportMarkerBase teleportMarker in teleportMarkers )
-			{
-				teleportMarker.SetAlpha( fullTintAlpha * meshAlphaPercent, meshAlphaPercent );
-			}
+            //Tint color for the teleport points
+            ForAllTeleportMarkers(teleportMarker => {
+                teleportMarker.SetAlpha(fullTintAlpha * meshAlphaPercent, meshAlphaPercent);
+            });
+
 		}
 
 
@@ -817,12 +882,15 @@ namespace Valve.VR.InteractionSystem
 					//Pointing at an unlocked teleport marker
 					teleportingToMarker = pointedAtTeleportMarker;
 					InitiateTeleportFade();
-
 					CancelTeleportHint();
 				}
 			}
 		}
 
+        public void TeleportPlayerTo(TeleportMarkerBase teleportMarker) {
+            teleportingToMarker = teleportMarker;
+            InitiateTeleportFade();
+        }
 
 		//-------------------------------------------------
 		private void InitiateTeleportFade()
@@ -841,18 +909,23 @@ namespace Valve.VR.InteractionSystem
 			SteamVR_Fade.Start( Color.clear, 0 );
 			SteamVR_Fade.Start( Color.black, currentFadeTime );
 
+            /*
 			headAudioSource.transform.SetParent( player.hmdTransform );
 			headAudioSource.transform.localPosition = Vector3.zero;
 			PlayAudioClip( headAudioSource, teleportSound );
+            TODO
+            */
+            teleportSoundHandler.PlayTeleportGoSound();
 
-			Invoke( "TeleportPlayer", currentFadeTime );
+
+            Invoke( "TeleportPlayer", currentFadeTime );
 		}
 
 
 		//-------------------------------------------------
 		private void TeleportPlayer()
 		{
-			teleporting = false;
+            teleporting = false;
 
 			Teleport.PlayerPre.Send( pointedAtTeleportMarker );
 
@@ -884,26 +957,72 @@ namespace Valve.VR.InteractionSystem
 					{
 						teleportPosition = raycastHit.point;
 					}
-				}
+}
 			}
 
 			if ( teleportingToMarker.ShouldMovePlayer() )
 			{
-				Vector3 playerFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
-				player.trackingOriginTransform.position = teleportPosition + playerFeetOffset;
 
+				//Valve implementation - maintains the relative offset so you physically always end up in the middle of the teleport position after the teleport.
+				/*
+			    Vector3 playerFeetOffset = player.trackingOriginTransform.position - player.feetPositionGuess;
+                player.trackingOriginTransform.position = teleportPosition + playerFeetOffset;
+			    */
+				//Virtual Ricochet implementation - puts your tracking center at the center of the teleport position, maintains your relative offset from the center.
+
+				//New method with offsets:
+				player.CalculateTeleportToWithOffset(teleportPosition, out Vector3 newPosition, out Quaternion newRotation);
+				Vector3 teleportPositionOffset = newPosition - player.trackingOriginTransform.position;
+				player.trackingOriginTransform.position = newPosition;
+				player.trackingOriginTransform.rotation = newRotation;
+
+				//Old method, no offsets:
+				//Vector3 teleportPositionOffset = teleportPosition - player.trackingOriginTransform.position;
+				//player.trackingOriginTransform.position = teleportPosition;
+
+                //Teleport everything that the player is holding onto as well.
+                //Valve implementation - This might do what Pete's implementation does, just in less code, needs testing.
+                /*
                 if (player.leftHand.currentAttachedObjectInfo.HasValue)
                     player.leftHand.ResetAttachedTransform(player.leftHand.currentAttachedObjectInfo.Value);
                 if (player.rightHand.currentAttachedObjectInfo.HasValue)
                     player.rightHand.ResetAttachedTransform(player.rightHand.currentAttachedObjectInfo.Value);
-            }
+                */
+                //Pete's implementation - The initial implementation before Valve's existed
+                foreach (Hand hand in player.hands) {
+                    foreach (Hand.AttachedObject attachedObject in hand.AttachedObjects) {
+
+                        Vector3 newTransformPosition = attachedObject.attachedObject.transform.position + teleportPositionOffset;
+                        Vector3 newRigidBodyPosition = Vector3.zero;
+
+                        if (attachedObject.HasAttachFlag(Hand.AttachmentFlags.VelocityMovement)) {
+                            newRigidBodyPosition = attachedObject.attachedRigidbody.position + teleportPositionOffset;
+                        }
+
+                        attachedObject.attachedObject.transform.position = newTransformPosition;
+
+                        if (attachedObject.HasAttachFlag(Hand.AttachmentFlags.VelocityMovement)) {
+                            attachedObject.attachedRigidbody.position = newRigidBodyPosition;
+                            attachedObject.attachedRigidbody.velocity = Vector3.zero;
+                            attachedObject.attachedRigidbody.angularVelocity = Vector3.zero;
+                        }
+
+                        VelocityEstimator velocityEstimator = attachedObject.attachedObject.GetComponent<VelocityEstimator>();
+                        if (velocityEstimator != null) {
+                            velocityEstimator.BeginEstimatingVelocity();
+                        }
+                    }
+                }
+			}
 			else
 			{
 				teleportingToMarker.TeleportPlayer( pointedAtPosition );
 			}
 
 			Teleport.Player.Send( pointedAtTeleportMarker );
-		}
+
+            onTeleportPlayer.Invoke();
+        }
 
 
 		//-------------------------------------------------
@@ -923,16 +1042,24 @@ namespace Valve.VR.InteractionSystem
 					prevPointedAtPosition = pointedAtPosition;
 					PlayPointerHaptic( !hitTeleportMarker.locked );
 
-					PlayAudioClip( reticleAudioSource, goodHighlightSound );
+					//PlayAudioClip( reticleAudioSource, goodHighlightSound ); TODO
+                    teleportSoundHandler.PlayReticleHighlightGoodSound();
 
-					loopingAudioSource.volume = loopingAudioMaxVolume;
-				}
+
+                    //loopingAudioSource.volume = loopingAudioMaxVolume; TODO
+                    teleportSoundHandler.SetPointerLoopVolumePercent(1.0f);
+
+                }
 				else if ( pointedAtTeleportMarker != null )
 				{
-					PlayAudioClip( reticleAudioSource, badHighlightSound );
+					//PlayAudioClip( reticleAudioSource, badHighlightSound ); TODO
+                    teleportSoundHandler.PlayReticleHighlightBadSound();
 
-					loopingAudioSource.volume = 0.0f;
-				}
+
+                    //loopingAudioSource.volume = 0.0f; TODO
+                    teleportSoundHandler.SetPointerLoopVolumePercent(0.0f);
+
+                }
 			}
 			else if ( hitTeleportMarker != null ) //Pointing at the same teleport marker
 			{
@@ -959,8 +1086,9 @@ namespace Valve.VR.InteractionSystem
 		{
 			if ( hintCoroutine != null )
             {
-                ControllerButtonHints.HideTextHint(player.leftHand, teleportAction);
-                ControllerButtonHints.HideTextHint(player.rightHand, teleportAction);
+                Debug.LogWarning("The teleport hint doesn't really work with multiple teleport actions...");
+                ControllerButtonHints.HideTextHint(player.leftHand, teleportActions.SingleAction);
+                ControllerButtonHints.HideTextHint(player.rightHand, teleportActions.SingleAction);
 
 				StopCoroutine( hintCoroutine );
 				hintCoroutine = null;
@@ -984,12 +1112,14 @@ namespace Valve.VR.InteractionSystem
 				foreach ( Hand hand in player.hands )
 				{
 					bool showHint = IsEligibleForTeleport( hand );
-					bool isShowingHint = !string.IsNullOrEmpty( ControllerButtonHints.GetActiveHintText( hand, teleportAction) );
+                    Debug.LogWarning("The teleport hint doesn't really work with multiple teleport actions...");
+                    bool isShowingHint = !string.IsNullOrEmpty( ControllerButtonHints.GetActiveHintText( hand, teleportActions.SingleAction) );
 					if ( showHint )
 					{
 						if ( !isShowingHint )
 						{
-							ControllerButtonHints.ShowTextHint( hand, teleportAction, "Teleport" );
+                            Debug.LogWarning("The teleport hint doesn't really work with multiple teleport actions...");
+                            ControllerButtonHints.ShowTextHint( hand, teleportActions.SingleAction, "Teleport" );
 							prevBreakTime = Time.time;
 							prevHapticPulseTime = Time.time;
 						}
@@ -1004,7 +1134,8 @@ namespace Valve.VR.InteractionSystem
 					}
 					else if ( !showHint && isShowingHint )
 					{
-						ControllerButtonHints.HideTextHint( hand, teleportAction);
+                        Debug.LogWarning("The teleport hint doesn't really work with multiple teleport actions...");
+                        ControllerButtonHints.HideTextHint( hand, teleportActions.SingleAction);
 					}
 				}
 
@@ -1044,26 +1175,23 @@ namespace Valve.VR.InteractionSystem
 				return false;
 			}
 
-			if ( hand.noSteamVRFallbackCamera == null )
+			if ( hand.isActive == false)
 			{
-				if ( hand.isActive == false)
+				return false;
+			}
+
+			//Something is attached to the hand
+			if ( hand.currentAttachedObject != null )
+			{
+				AllowTeleportWhileAttachedToHand allowTeleportWhileAttachedToHand = hand.currentAttachedObject.GetComponent<AllowTeleportWhileAttachedToHand>();
+
+				if ( allowTeleportWhileAttachedToHand != null && allowTeleportWhileAttachedToHand.teleportAllowed == true )
+				{
+					return true;
+				}
+				else
 				{
 					return false;
-				}
-
-				//Something is attached to the hand
-				if ( hand.currentAttachedObject != null )
-				{
-					AllowTeleportWhileAttachedToHand allowTeleportWhileAttachedToHand = hand.currentAttachedObject.GetComponent<AllowTeleportWhileAttachedToHand>();
-
-					if ( allowTeleportWhileAttachedToHand != null && allowTeleportWhileAttachedToHand.teleportAllowed == true )
-					{
-						return true;
-					}
-					else
-					{
-						return false;
-					}
 				}
 			}
 
@@ -1086,8 +1214,12 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private bool WasTeleportButtonReleased( Hand hand )
 		{
-			if ( IsEligibleForTeleport( hand ) )
+            bool teleportButtonReleased = teleportActions.GetStateUp(hand.handType);
+
+            if ( teleportButtonReleased )
 			{
+                return IsEligibleForTeleport(hand);
+			    /*
 				if ( hand.noSteamVRFallbackCamera != null )
 				{
 					return Input.GetKeyUp( KeyCode.T );
@@ -1098,6 +1230,7 @@ namespace Valve.VR.InteractionSystem
 
                     //return hand.controller.GetPressUp( SteamVR_Controller.ButtonMask.Touchpad );
                 }
+            */
 			}
 
 			return false;
@@ -1108,6 +1241,8 @@ namespace Valve.VR.InteractionSystem
 		{
 			if ( IsEligibleForTeleport( hand ) )
 			{
+			    return teleportActions.GetState(hand.handType);
+			    /*
 				if ( hand.noSteamVRFallbackCamera != null )
 				{
 					return Input.GetKey( KeyCode.T );
@@ -1116,6 +1251,7 @@ namespace Valve.VR.InteractionSystem
                 {
                     return teleportAction.GetState(hand.handType);
 				}
+				*/
 			}
 
 			return false;
@@ -1125,8 +1261,17 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private bool WasTeleportButtonPressed( Hand hand )
 		{
-			if ( IsEligibleForTeleport( hand ) )
+            bool teleportButtonPressed = teleportActions.GetStateDown(hand.handType);
+
+            if ( teleportButtonPressed )
 			{
+                if ( IsEligibleForTeleport(hand) ) {
+                    return true;
+                } else {
+                    onTeleportIneligible.Invoke(hand);
+                    return false;
+                }
+			    /*
 				if ( hand.noSteamVRFallbackCamera != null )
 				{
 					return Input.GetKeyDown( KeyCode.T );
@@ -1137,6 +1282,7 @@ namespace Valve.VR.InteractionSystem
 
                     //return hand.controller.GetPressDown( SteamVR_Controller.ButtonMask.Touchpad );
 				}
+				*/
 			}
 
 			return false;
@@ -1146,14 +1292,44 @@ namespace Valve.VR.InteractionSystem
 		//-------------------------------------------------
 		private Transform GetPointerStartTransform( Hand hand )
 		{
+
 			if ( hand.noSteamVRFallbackCamera != null )
 			{
-				return hand.noSteamVRFallbackCamera.transform;
+                if (NoVrCamera.NoVrEnabled) {
+                    switch (NoVrCamera.Instance.controlType) {
+                        case NoVrCamera.HandControlType.FOCUSED_HAND_IN_FRONT_OF_CAMERA:
+                            return hand.transform;
+                        case NoVrCamera.HandControlType.STEAM_VR:
+                            return hand.noSteamVRFallbackCamera.transform;
+                        default:
+                            Debug.LogError("Unknown control type: " + NoVrCamera.Instance.controlType);
+                            break;
+                    }
+                }
+
+
+                return hand.noSteamVRFallbackCamera.transform;
 			}
 			else
 			{
 				return hand.transform;
 			}
 		}
-	}
+
+        public void AddOnTeleportPlayerListener(UnityAction eventListener) {
+            onTeleportPlayer.AddListener(eventListener);
+        }
+
+        public void RemoveOnTeleportPlayerListener(UnityAction eventListener) {
+            onTeleportPlayer.RemoveListener(eventListener);
+        }
+
+        public void AddOnTeleportIneligibleListener(UnityAction<Hand> eventListener) {
+            onTeleportIneligible.AddListener(eventListener);
+        }
+
+        public void RemoveOnTeleportIneligibleListener(UnityAction<Hand> eventListener) {
+            onTeleportIneligible.RemoveListener(eventListener);
+        }
+    }
 }

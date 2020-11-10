@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.UI;
 using System.Text;
+using System;
 
 namespace Valve.VR.InteractionSystem
 {
@@ -63,6 +64,10 @@ namespace Valve.VR.InteractionSystem
 
 			public float distanceFromCenter;
 			public bool textHintActive = false;
+
+			internal void DestroyGameObjects() {
+				GameObject.Destroy(textHintObject);
+			}
 		}
 
 		private Dictionary<ISteamVR_Action_In_Source, ActionHintInfo> actionHintInfos;
@@ -390,6 +395,331 @@ namespace Valve.VR.InteractionSystem
 			hintInfo.line.transform.localScale = Vector3.Scale( hintInfo.line.transform.localScale, player.transform.localScale );
 		}
 
+        #region A different approach to hints
+
+        private Dictionary<ISteamVR_Action_In, ActionHintInfo> existingVisibleHints = new Dictionary<ISteamVR_Action_In, ActionHintInfo>();
+
+		public static void ShowAndCreateNewHint(Hand hand, ISteamVR_Action_In forAction, string hintTextToShow) {
+			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
+			if (controllerButtonHints == null) {
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
+				return;
+			}
+			try {
+				controllerButtonHints.ShowAndCreateNewHint(forAction, hintTextToShow);
+			} catch (Exception e) {
+				if (controllerButtonHints.debugHints) {
+					Debug.LogException(e);
+				}
+			}
+		}
+
+		public void ShowAndCreateNewHint(ISteamVR_Action_In forAction, string hintTextToShow) {
+
+			//TODO - If two things use the same hint object, we should only show one text...
+			//I think this would require changing how the dictionary operates.
+
+			if (!forAction.GetActive(inputSource)) {
+				if (debugHints) {
+					Debug.LogWarning(string.Format("Action {0} is not active, no hint will be displayed", forAction));
+				}
+				return;
+			}
+
+			ActionHintInfo actionHintInfo = null;
+			if (existingVisibleHints.ContainsKey(forAction)) {
+				actionHintInfo = existingVisibleHints[forAction];
+			} else {
+				actionHintInfo = CreateNewHintInfo(forAction);
+				if (actionHintInfo == null) {
+					if (debugHints) {
+						Debug.LogError(string.Format("Failed to create hint for action {0}", forAction));
+					}
+					return;
+				}
+			}
+
+			UpdateExistingHintText(actionHintInfo, forAction, hintTextToShow);
+
+		}
+
+		private void UpdateExistingHintText(ActionHintInfo hintInfo, ISteamVR_Action_In action, string text, bool highlightButton = true) {
+			//ActionHintInfo hintInfo = actionHintInfos[action];
+			hintInfo.textHintObject.SetActive(true);
+			hintInfo.textHintActive = true;
+
+			if (hintInfo.text != null) {
+				hintInfo.text.text = text;
+			}
+
+			if (hintInfo.textMesh != null) {
+				hintInfo.textMesh.text = text;
+			}
+
+			UpdateTextHint(hintInfo);
+
+			if (highlightButton) {
+				ShowButtonHint2(hintInfo);
+			}
+
+			renderModel.gameObject.SetActive(true);
+		}
+
+		private void ShowButtonHint2(ActionHintInfo hintInfo) {
+			renderModel.gameObject.SetActive(true);
+
+			renderModel.GetComponentsInChildren<MeshRenderer>(renderers);
+			for (int i = 0; i < renderers.Count; i++) {
+				Texture mainTexture = renderers[i].material.mainTexture;
+				renderers[i].sharedMaterial = controllerMaterial;
+				renderers[i].material.mainTexture = mainTexture;
+
+				// This is to poke unity into setting the correct render queue for the model
+				renderers[i].material.renderQueue = controllerMaterial.shader.renderQueue;
+			}
+
+			foreach (MeshRenderer renderer in hintInfo.renderers) {
+				if (!flashingRenderers.Contains(renderer)) {
+					flashingRenderers.Add(renderer);
+				}
+			}
+
+			startTime = Time.realtimeSinceStartup;
+			tickCount = 0.0f;
+		}
+
+		private void HideButtonHint2(ActionHintInfo hintInfo) {
+
+			Color baseColor = controllerMaterial.GetColor(colorID);
+			foreach (MeshRenderer renderer in hintInfo.renderers) {
+				renderer.material.color = baseColor;
+				flashingRenderers.Remove(renderer);
+			}
+
+			if (flashingRenderers.Count == 0) {
+				renderModel.gameObject.SetActive(false);
+			}
+		}
+
+		private ActionHintInfo CreateNewHintInfo(ISteamVR_Action_In forAction) {
+			Transform buttonTransform = null;
+			List<MeshRenderer> buttonRenderers = new List<MeshRenderer>();
+
+			string actionComponentName = forAction.GetRenderModelComponentName(inputSource);
+
+			bool valid = GetTransformsAndRenderers(actionComponentName, ref buttonTransform, ref buttonRenderers);
+
+			if (actionComponentName.Contains("grip")) {
+				//HACKY HACK IS HACKY
+				valid |= GetTransformsAndRenderers("lgrip", ref buttonTransform, ref buttonRenderers);
+				valid |= GetTransformsAndRenderers("rgrip", ref buttonTransform, ref buttonRenderers);
+			}
+
+			if (!valid) {
+				if (debugHints) {
+					Debug.LogWarning(string.Format("Couldn't find buttonTransform for {0}", forAction.GetShortName()));
+				}
+				return null;
+			}
+
+			return CreateNewHintInfo(forAction, buttonTransform, buttonRenderers);
+
+		}
+
+		private bool GetTransformsAndRenderers(string actionComponentName, ref Transform buttonTransform, ref List<MeshRenderer> buttonRenderers) {
+
+			buttonTransform = null;
+
+			if (componentTransformMap.ContainsKey(actionComponentName)) {
+				Transform componentTransform = componentTransformMap[actionComponentName];
+				if (buttonTransform == null) {
+					buttonTransform = componentTransform;
+				}
+				buttonRenderers.AddRange(componentTransform.GetComponentsInChildren<MeshRenderer>());
+				return true;
+			} else {
+				//buttonDebug.AppendLine(string.Format("Can't find component transform for action: {0}. Component name: \"{1}\"", action.GetShortName(), actionComponentName));
+				
+				return false;
+			}
+		}
+
+		private ActionHintInfo CreateNewHintInfo(ISteamVR_Action_In action, Transform buttonTransform, List<MeshRenderer> buttonRenderers) {
+			ActionHintInfo hintInfo = new ActionHintInfo();
+
+			if (buttonTransform == null) {
+				if (debugHints) {
+					Debug.LogError("buttonTransform is null!");
+				}
+			}
+
+			hintInfo.componentName = buttonTransform.name;
+			hintInfo.renderers = buttonRenderers;
+
+			//Get the local transform for the button
+			for (int childIndex = 0; childIndex < buttonTransform.childCount; childIndex++) {
+				Transform child = buttonTransform.GetChild(childIndex);
+				if (child.name == SteamVR_RenderModel.k_localTransformName)
+					hintInfo.localTransform = child;
+			}
+
+			OffsetType offsetType = OffsetType.Right;
+			//float offsetDirectionMultiplier = inputSource == SteamVR_Input_Sources.RightHand ? -1.0f : 1.0f;
+
+			/*
+            switch ( buttonID )
+			{
+				case EVRButtonId.k_EButton_SteamVR_Trigger:
+					{
+						offsetType = OffsetType.Right;
+					}
+					break;
+				case EVRButtonId.k_EButton_ApplicationMenu:
+					{
+						offsetType = OffsetType.Right;
+					}
+					break;
+				case EVRButtonId.k_EButton_System:
+					{
+						offsetType = OffsetType.Right;
+					}
+					break;
+				case Valve.VR.EVRButtonId.k_EButton_Grip:
+					{
+						offsetType = OffsetType.Forward;
+					}
+					break;
+				case Valve.VR.EVRButtonId.k_EButton_SteamVR_Touchpad:
+					{
+						offsetType = OffsetType.Up;
+					}
+					break;
+			}
+            */
+
+			//Offset for the text end transform
+			switch (offsetType) {
+			case OffsetType.Forward:
+				hintInfo.textEndOffsetDir = hintInfo.localTransform.forward;
+				break;
+			case OffsetType.Back:
+				hintInfo.textEndOffsetDir = -hintInfo.localTransform.forward;
+				break;
+			case OffsetType.Right:
+				hintInfo.textEndOffsetDir = hintInfo.localTransform.right;
+				break;
+			case OffsetType.Up:
+				hintInfo.textEndOffsetDir = hintInfo.localTransform.up;
+				break;
+			}
+
+			//Create the text hint object
+			//Vector3 hintStartPos = hintInfo.localTransform.position + (hintInfo.localTransform.forward * 0.01f);
+			hintInfo.textHintObject = GameObject.Instantiate(textHintPrefab, textHintParent) as GameObject;
+			
+			Vector3 hintStartPos = hintInfo.localTransform.position + (textHintParent.right * 1.0f * 0.07f);
+			hintInfo.textHintObject.transform.position = hintStartPos;
+			Quaternion hintLocalRotation = Quaternion.Euler(-90.0f, 0f, 180.0f);
+			//hintInfo.textHintObject.transform.localRotation = hintLocalRotation;
+			hintInfo.textHintObject.name = "Hint_N_" + hintInfo.componentName + "_Start";
+			//hintInfo.textHintObject.transform.SetParent(textHintParent);
+			hintInfo.textHintObject.layer = gameObject.layer;
+			hintInfo.textHintObject.tag = gameObject.tag;
+
+			//Get all the relevant child objects
+			hintInfo.textStartAnchor = hintInfo.textHintObject.transform.Find("Start");
+			hintInfo.textEndAnchor = hintInfo.textHintObject.transform.Find("End");
+			hintInfo.canvasOffset = hintInfo.textHintObject.transform.Find("CanvasOffset");
+			hintInfo.line = hintInfo.textHintObject.transform.Find("Line").GetComponent<LineRenderer>();
+			hintInfo.textCanvas = hintInfo.textHintObject.GetComponentInChildren<Canvas>();
+			hintInfo.text = hintInfo.textCanvas.GetComponentInChildren<Text>();
+			hintInfo.textMesh = hintInfo.textCanvas.GetComponentInChildren<TextMesh>();
+
+			hintInfo.textHintObject.SetActive(false);
+
+			hintInfo.textStartAnchor.position = hintInfo.localTransform.position;
+			hintInfo.textEndAnchor.position = hintStartPos;
+			//Setup the line:
+			//hintInfo.line.positionCount = 2;
+			//hintInfo.line.SetPosition(0, hintInfo.textStartAnchor.position);
+			//hintInfo.line.SetPosition(1, hintInfo.textEndAnchor.position);
+
+			//Idk why but the rotation is off for the canvas:
+			hintInfo.canvasOffset.transform.localRotation = hintLocalRotation;
+
+			if (hintInfo.text != null) {
+				hintInfo.text.text = hintInfo.componentName;
+			}
+
+			if (hintInfo.textMesh != null) {
+				hintInfo.textMesh.text = hintInfo.componentName;
+			}
+
+			centerPosition += hintInfo.textStartAnchor.position;
+
+			// Scale hint components to match player size
+			hintInfo.textCanvas.transform.localScale = Vector3.Scale(hintInfo.textCanvas.transform.localScale, player.transform.localScale);
+			hintInfo.textStartAnchor.transform.localScale = Vector3.Scale(hintInfo.textStartAnchor.transform.localScale, player.transform.localScale);
+			hintInfo.textEndAnchor.transform.localScale = Vector3.Scale(hintInfo.textEndAnchor.transform.localScale, player.transform.localScale);
+			hintInfo.line.transform.localScale = Vector3.Scale(hintInfo.line.transform.localScale, player.transform.localScale);
+
+			existingVisibleHints.Add(action, hintInfo);
+			return hintInfo;
+		}
+
+		public static void HideAndDestroyHint(Hand hand, ISteamVR_Action_In forAction) {
+			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
+			if (controllerButtonHints == null) {
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
+				return;
+			}
+			controllerButtonHints.HideAndDestroyHint(forAction);
+		}
+
+		public void HideAndDestroyHint(ISteamVR_Action_In forAction) {
+
+			if (existingVisibleHints.TryGetValue(forAction, out ActionHintInfo actionHintInfo)) {
+				HideButtonHint2(actionHintInfo);
+				actionHintInfo.DestroyGameObjects();
+				existingVisibleHints.Remove(forAction);
+			}
+
+		}
+
+		public static void HideAndDestroyAllHints(Hand hand) {
+			ControllerButtonHints controllerButtonHints = GetControllerButtonHints(hand);
+			if (controllerButtonHints == null) {
+				Debug.LogWarning(string.Format("No controller hints for hand: {0}", hand.handType));
+				return;
+			}
+			controllerButtonHints.HideAndDestroyAllHints();
+		}
+
+		public static void HideAndDestroyAllHintsForPlayer() {
+			if (Player.instance == null) {
+				return;
+			}
+			if (Player.instance.leftHand != null) {
+				HideAndDestroyAllHints(Player.instance.leftHand);
+			}
+			if (Player.instance.rightHand != null) {
+				HideAndDestroyAllHints(Player.instance.rightHand);
+			}
+		}
+
+		public void HideAndDestroyAllHints() {
+			HideAllButtonHints();
+			foreach (ActionHintInfo actionHintInfo in existingVisibleHints.Values) {
+				actionHintInfo.DestroyGameObjects();
+			}
+			existingVisibleHints.Clear();
+		}
+
+
+		
+
+		#endregion
+
 
 		//-------------------------------------------------
 		private void ComputeTextEndTransforms()
@@ -630,7 +960,7 @@ namespace Valve.VR.InteractionSystem
 				flInterp = Util.RemapNumberClamped( playerTransform.forward.y, -0.8f, -0.6f, 1.0f, 0.0f );
 			}
 
-			hintInfo.canvasOffset.rotation = Quaternion.Slerp( standardLookat, upsideDownLookat, flInterp );
+			//hintInfo.canvasOffset.rotation = Quaternion.Slerp( standardLookat, upsideDownLookat, flInterp );
 
 			Transform lineTransform = hintInfo.line.transform;
 

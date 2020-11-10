@@ -8,13 +8,20 @@ using UnityEngine;
 using UnityEditor;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Collections;
+using UnityEngine.Networking;
 
-#if UNITY_2018_3_OR_NEWER
-#pragma warning disable CS0618
-#endif
+//#if UNITY_2018_3_OR_NEWER
+//#pragma warning disable CS0618
+//#endif
 
 namespace Valve.VR
 {
+
+    /// <summary>
+    /// Updated by P3TE to stop warning about using WWW
+    /// Updated to use UnityWebRequest, which should hopefully work :P
+    /// </summary>
     [InitializeOnLoad]
     public class SteamVR_Update : EditorWindow
     {
@@ -25,7 +32,8 @@ namespace Valve.VR
         const string doNotShowKey = "SteamVR.DoNotShow.v{0}";
 
         static bool gotVersion = false;
-        static WWW wwwVersion, wwwNotes;
+        //static WWW wwwVersion, wwwNotes;
+        static UnityWebRequest wrVersion, wrNotes;
         static string version, notes;
         static SteamVR_Update window;
 
@@ -34,26 +42,34 @@ namespace Valve.VR
             EditorApplication.update += Update;
         }
 
+        private static UnityWebRequest SendGetRequest(string url) {
+            UnityWebRequest www = UnityWebRequest.Get(versionUrl);
+            www.SendWebRequest();
+            return www;
+        }
+
         static void Update()
         {
             if (!gotVersion)
             {
-                if (wwwVersion == null)
-                    wwwVersion = new WWW(versionUrl);
 
-                if (!wwwVersion.isDone)
+                if (wrVersion == null) {
+                    wrVersion = SendGetRequest(versionUrl);
+                }
+                if (!wrVersion.isDone) {
                     return;
+                }
+                if (WebRequestSuccess(wrVersion)) {
+                    version = GetWebRequestText(wrVersion);
+                }
 
-                if (UrlSuccess(wwwVersion))
-                    version = wwwVersion.text;
-
-                wwwVersion = null;
+                wrVersion = null;
                 gotVersion = true;
 
                 if (ShouldDisplay())
                 {
                     var url = string.Format(notesUrl, version);
-                    wwwNotes = new WWW(url);
+                    wrNotes = SendGetRequest(url);
 
                     window = GetWindow<SteamVR_Update>(true);
                     window.minSize = new Vector2(320, 440);
@@ -61,31 +77,57 @@ namespace Valve.VR
                 }
             }
 
-            if (wwwNotes != null)
+            if (wrNotes != null)
             {
-                if (!wwwNotes.isDone)
+                if (!wrNotes.isDone) {
                     return;
+                }
 
-                if (UrlSuccess(wwwNotes))
-                    notes = wwwNotes.text;
+                if (WebRequestSuccess(wrNotes)) {
+                    notes = GetWebRequestText(wrNotes);
+                }
 
-                wwwNotes = null;
+                wrNotes = null;
 
-                if (notes != "")
+                if (notes != "") {
                     window.Repaint();
+                }
             }
 
             EditorApplication.update -= Update;
         }
 
-        static bool UrlSuccess(WWW www)
-        {
-            if (!string.IsNullOrEmpty(www.error))
+        static string GetWebRequestText(UnityWebRequest webRequest) {
+            byte[] byteArray = webRequest.downloadHandler.data;
+            string resultString = System.Text.Encoding.UTF8.GetString(byteArray);
+            return resultString;
+        }
+
+        static bool WebRequestSuccess(UnityWebRequest webRequest) {
+            if (webRequest.isNetworkError) {
+                Debug.LogWarning(webRequest.error);
                 return false;
-            if (Regex.IsMatch(www.text, "404 not found", RegexOptions.IgnoreCase))
+            }
+            if (webRequest.isHttpError) {
+                Debug.LogWarning(webRequest.error);
                 return false;
+            }
+            string resultString = GetWebRequestText(webRequest);
+            if (Regex.IsMatch(resultString, "404 not found", RegexOptions.IgnoreCase)) {
+                Debug.LogWarning(resultString);
+                return false;
+            }
             return true;
         }
+
+        //static bool UrlSuccess(WWW www)
+        //{
+        //    if (!string.IsNullOrEmpty(www.error))
+        //        return false;
+        //    if (Regex.IsMatch(www.text, "404 not found", RegexOptions.IgnoreCase))
+        //        return false;
+        //    return true;
+        //}
 
         static bool ShouldDisplay()
         {
@@ -175,6 +217,6 @@ namespace Valve.VR
     }
 }
 
-#if UNITY_2018_3_OR_NEWER
-#pragma warning restore CS0618
-#endif
+//#if UNITY_2018_3_OR_NEWER
+//#pragma warning restore CS0618
+//#endif

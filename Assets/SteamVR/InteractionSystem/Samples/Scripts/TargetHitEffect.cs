@@ -19,7 +19,7 @@ namespace Valve.VR.InteractionSystem.Sample
         {
             if (collision.collider == targetCollider)
             {
-                ContactPoint contact = collision.contacts[0];
+                ContactPoint contact = collision.GetContact(0);
                 RaycastHit hit;
 
                 float backTrackLength = 1f;
