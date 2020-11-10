@@ -217,7 +217,7 @@ namespace Valve.VR.InteractionSystem {
                 string descriptionText = inputField.placeholder?.GetComponent<Text>()?.text;
                 SteamVR.instance.overlay.ShowKeyboard((int)EGamepadTextInputMode.k_EGamepadTextInputModeNormal,
                     (int)EGamepadTextInputLineMode.k_EGamepadTextInputLineModeSingleLine,
-                    descriptionText, (uint)characterLimit, inputField.text, false, 0);
+                    0, descriptionText, (uint)characterLimit, inputField.text, 0);
             }
         }
 
