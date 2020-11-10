@@ -74,6 +74,9 @@ namespace Valve.VR.InteractionSystem
         public float noSteamVRFallbackMaxDistanceNoItem = 10.0f;
         public float noSteamVRFallbackMaxDistanceWithItem = 0.5f;
         private float noSteamVRFallbackInteractorDistance = -1.0f;
+        private float noSteamVRFallbackHandDistFromCamera = 1.0f;
+        public Vector3 noSteamVRFallbackHandRotationOffset = new Vector3();
+        public GameObject noSteamVrFallbackHandRender;
 
         public GameObject renderModelPrefab;
         [HideInInspector]
@@ -86,6 +89,30 @@ namespace Valve.VR.InteractionSystem
         public bool showDebugText = false;
         public bool spewDebugText = false;
         public bool showDebugInteractables = false;
+
+        public class HandSpecificEvent : UnityEvent<Hand> {}
+
+        [HideInInspector]
+        public HandSpecificEvent onHandEnabledEvent = new HandSpecificEvent();
+
+        [HideInInspector]
+        public HandSpecificEvent onHandDisabledEvent = new HandSpecificEvent();
+
+        public class HandTranslationEvent : UnityEvent<Transform> {}
+
+        [HideInInspector]
+        public HandTranslationEvent onHandTranslatedEvent = new HandTranslationEvent();
+
+        private bool _handInitialised = false;
+
+        public bool HandInitialised {
+            get {
+                return _handInitialised;
+            }
+            private set {
+                _handInitialised = value;
+            }
+        }
 
         public struct AttachedObject
         {
@@ -112,6 +139,22 @@ namespace Valve.VR.InteractionSystem
             {
                 return (attachmentFlags & flag) == flag;
             }
+
+            public Vector3 PositionalOffset {
+                get {
+                    return attachedOffsetTransform.InverseTransformPoint(attachedObject.transform.position);
+                }
+            }
+
+            public Quaternion RotationalOffset {
+                get {
+                    return Quaternion.Inverse(attachedOffsetTransform.rotation) * attachedObject.transform.rotation;
+                }
+            }
+
+            //attachedObject.initialPositionalOffset = attachedObject.handAttachmentPointTransform.InverseTransformPoint(objectToAttach.transform.position);
+            //        attachedObject.initialRotationalOffset = Quaternion.Inverse(attachedObject.handAttachmentPointTransform.rotation) * objectToAttach.transform.rotation;
+
         }
 
         private List<AttachedObject> attachedObjects = new List<AttachedObject>();
@@ -508,6 +551,12 @@ namespace Valve.VR.InteractionSystem
                     attachedObject.initialPositionalOffset = attachedObject.handAttachmentPointTransform.InverseTransformPoint(followPoint.position);
                     attachedObject.initialRotationalOffset = Quaternion.Inverse(attachedObject.handAttachmentPointTransform.rotation) * followPoint.rotation;
                 }
+
+                if (attachedObject.HasAttachFlag(AttachmentFlags.VelocityMovement)) {
+                    attachedObject.attachedRigidbody.velocity = Vector3.zero;
+                    attachedObject.attachedRigidbody.angularVelocity = Vector3.zero;
+                }
+
             }
             else
             {
@@ -575,6 +624,48 @@ namespace Valve.VR.InteractionSystem
             objectToAttach.SendMessage("OnAttachedToHand", this, SendMessageOptions.DontRequireReceiver);
         }
 
+        /// <summary>
+        /// Good to use after a teleport.
+        /// </summary>
+        public void SnapAllAttachmentsToHand() {
+
+            for (int i = 0; i < attachedObjects.Count; i++) {
+                AttachedObject attachedObject = attachedObjects[i];
+                if (!attachedObject.HasAttachFlag(AttachmentFlags.SnapOnAttach)) {
+                    continue;
+                }
+
+                Transform attachmentOffset = attachedObject.attachedOffsetTransform;
+                GameObject objectToAttach = attachedObject.attachedObject;
+
+                if (attachmentOffset != null) {
+                    //offset the object from the hand by the positional and rotational difference between the offset transform and the attached object
+                    Quaternion rotDiff = Quaternion.Inverse(attachmentOffset.transform.rotation) * objectToAttach.transform.rotation;
+                    objectToAttach.transform.rotation = attachedObject.handAttachmentPointTransform.rotation * rotDiff;
+
+                    Vector3 posDiff = objectToAttach.transform.position - attachmentOffset.transform.position;
+                    objectToAttach.transform.position = attachedObject.handAttachmentPointTransform.position + posDiff;
+                } else {
+                    //snap the object to the center of the attach point
+                    objectToAttach.transform.rotation = attachedObject.handAttachmentPointTransform.rotation;
+                    objectToAttach.transform.position = attachedObject.handAttachmentPointTransform.position;
+                }
+
+                Transform followPoint = objectToAttach.transform;
+                //currentAttachedObjectInfo.Value.handAttachmentPointTransform
+                if (attachedObject.interactable.handFollowTransform &&
+                    (currentAttachedObjectInfo.Value.handAttachmentPointTransform != null)) {
+                    followPoint = currentAttachedObjectInfo.Value.handAttachmentPointTransform;
+                }
+                //if (attachedObject.interactable != null && attachedObject.interactable.handFollowTransform != null)
+                //    followPoint = attachedObject.interactable.handFollowTransform;
+
+                attachedObject.initialPositionalOffset = attachedObject.handAttachmentPointTransform.InverseTransformPoint(followPoint.position);
+                attachedObject.initialRotationalOffset = Quaternion.Inverse(attachedObject.handAttachmentPointTransform.rotation) * followPoint.rotation;
+            }
+
+        }
+
         public bool ObjectIsAttached(GameObject go)
         {
             for (int attachedIndex = 0; attachedIndex < attachedObjects.Count; attachedIndex++)
@@ -584,6 +675,10 @@ namespace Valve.VR.InteractionSystem
             }
 
             return false;
+        }
+
+        public void ForceHoverLock() {
+            hoverLocked = true;
         }
 
         public void ForceHoverUnlock()
@@ -768,6 +863,9 @@ namespace Valve.VR.InteractionSystem
         private void CleanUpAttachedObjectStack()
         {
             attachedObjects.RemoveAll(l => l.attachedObject == null);
+            if (noSteamVRFallbackCamera) {
+                noSteamVrFallbackHandRender?.SetActive(attachedObjects.Count == 0);
+            }
         }
 
 
@@ -793,6 +891,9 @@ namespace Valve.VR.InteractionSystem
                 if (trackedObject != null)
                     trackedObject.onTransformUpdatedEvent += OnTransformUpdated;
             }
+
+            // allocate array for colliders
+            overlappingColliders = new Collider[ColliderArraySize];
         }
 
         protected virtual void OnDestroy()
@@ -806,6 +907,7 @@ namespace Valve.VR.InteractionSystem
         protected virtual void OnTransformUpdated(SteamVR_Behaviour_Pose updatedPose, SteamVR_Input_Sources updatedSource)
         {
             HandFollowUpdate();
+            onHandTranslatedEvent.Invoke(transform);
         }
 
         //-------------------------------------------------
@@ -823,14 +925,12 @@ namespace Valve.VR.InteractionSystem
             else
                 hoverLayerMask &= ~(1 << this.gameObject.layer); //ignore self for hovering
 
-            // allocate array for colliders
-            overlappingColliders = new Collider[ColliderArraySize];
-
             // We are a "no SteamVR fallback hand" if we have this camera set
             // we'll use the right mouse to look around and left mouse to interact
             // - don't need to find the device
             if (noSteamVRFallbackCamera)
             {
+                HandInitialised = true;
                 yield break;
             }
 
@@ -846,6 +946,8 @@ namespace Valve.VR.InteractionSystem
 
                 yield return null;
             }
+
+            HandInitialised = true;
         }
 
 
@@ -982,46 +1084,108 @@ namespace Valve.VR.InteractionSystem
         //-------------------------------------------------
         protected virtual void UpdateNoSteamVRFallback()
         {
-            if (noSteamVRFallbackCamera)
-            {
-                Ray ray = noSteamVRFallbackCamera.ScreenPointToRay(Input.mousePosition);
+            if (!noSteamVRFallbackCamera) {
+                return;
+            }
 
-                if (attachedObjects.Count > 0)
+            NoVrCamera.HandControlType handControlType = NoVrCamera.HandControlType.STEAM_VR;
+
+            if (NoVrCamera.Instance != null) {
+                handControlType = NoVrCamera.Instance.controlType;
+            }
+
+            switch (handControlType) {
+                case NoVrCamera.HandControlType.STEAM_VR:
+                    UpdateNoSteamVRFallbackSteamWay();
+                    break;
+                case NoVrCamera.HandControlType.FOCUSED_HAND_IN_FRONT_OF_CAMERA:
+                    UpdateNoSteamVRFallbackFocusedHandInFrontOfCameraWay();
+                    break;
+                default:
+                    Debug.LogError("Unimplemented hand control type: " + handControlType);
+                    break;
+            }
+
+
+        }
+
+        protected virtual void UpdateNoSteamVRFallbackSteamWay() {
+            Ray ray = noSteamVRFallbackCamera.ScreenPointToRay(Input.mousePosition);
+
+            if (attachedObjects.Count > 0) {
+                // Holding down the mouse:
+                // move around a fixed distance from the camera
+                transform.position = ray.origin + noSteamVRFallbackInteractorDistance * ray.direction;
+            } else {
+                // Not holding down the mouse:
+                // cast out a ray to see what we should mouse over
+
+                // Don't want to hit the hand and anything underneath it
+                // So move it back behind the camera when we do the raycast
+                Vector3 oldPosition = transform.position;
+                transform.position = noSteamVRFallbackCamera.transform.forward * (-1000.0f);
+
+                RaycastHit raycastHit;
+                if (Physics.Raycast(ray, out raycastHit, noSteamVRFallbackMaxDistanceNoItem))
                 {
-                    // Holding down the mouse:
-                    // move around a fixed distance from the camera
-                    transform.position = ray.origin + noSteamVRFallbackInteractorDistance * ray.direction;
+                    transform.position = raycastHit.point;
+
+                    // Remember this distance in case we click and drag the mouse
+                    noSteamVRFallbackInteractorDistance = Mathf.Min(noSteamVRFallbackMaxDistanceNoItem, raycastHit.distance);
+                }
+                else if (noSteamVRFallbackInteractorDistance > 0.0f)
+                {
+                    // Move it around at the distance we last had a hit
+                    transform.position = ray.origin + Mathf.Min(noSteamVRFallbackMaxDistanceNoItem, noSteamVRFallbackInteractorDistance) * ray.direction;
                 }
                 else
                 {
-                    // Not holding down the mouse:
-                    // cast out a ray to see what we should mouse over
-
-                    // Don't want to hit the hand and anything underneath it
-                    // So move it back behind the camera when we do the raycast
-                    Vector3 oldPosition = transform.position;
-                    transform.position = noSteamVRFallbackCamera.transform.forward * (-1000.0f);
-
-                    RaycastHit raycastHit;
-                    if (Physics.Raycast(ray, out raycastHit, noSteamVRFallbackMaxDistanceNoItem))
-                    {
-                        transform.position = raycastHit.point;
-
-                        // Remember this distance in case we click and drag the mouse
-                        noSteamVRFallbackInteractorDistance = Mathf.Min(noSteamVRFallbackMaxDistanceNoItem, raycastHit.distance);
-                    }
-                    else if (noSteamVRFallbackInteractorDistance > 0.0f)
-                    {
-                        // Move it around at the distance we last had a hit
-                        transform.position = ray.origin + Mathf.Min(noSteamVRFallbackMaxDistanceNoItem, noSteamVRFallbackInteractorDistance) * ray.direction;
-                    }
-                    else
-                    {
-                        // Didn't hit, just leave it where it was
-                        transform.position = oldPosition;
-                    }
+                    // Didn't hit, just leave it where it was
+                    transform.position = oldPosition;
                 }
             }
+        }
+
+
+        protected virtual void UpdateNoSteamVRFallbackFocusedHandInFrontOfCameraWay() {
+            if (PointingInputModule.Instance.InputLock) {
+                return;
+            }
+
+            NoVrCamera noVrCamera = NoVrCamera.Instance;
+            Transform cameraTransform = noVrCamera.transform;
+
+
+            if (noVrCamera.ControllingHand == handType) {
+
+                float distMultiplier = 1.0f + (Input.mouseScrollDelta.y * 0.1f);
+                noSteamVRFallbackHandDistFromCamera *= distMultiplier;
+
+                Vector3 forwardFromCamera = cameraTransform.forward;
+                Vector3 cameraPosition = cameraTransform.position;
+
+                Vector3 handPosition = cameraPosition + forwardFromCamera * noSteamVRFallbackHandDistFromCamera;
+                transform.position = handPosition;
+
+                //noSteamVRFallbackHandRotationOffset
+                if (Input.GetKey(noVrCamera.tiltHandUp)) {
+                    noSteamVRFallbackHandRotationOffset.x += Time.deltaTime * 45;
+                }
+                if (Input.GetKey(noVrCamera.tiltHandDown)) {
+                    noSteamVRFallbackHandRotationOffset.x -= Time.deltaTime * 45;
+                }
+
+
+            } else {
+                Vector3 downFromCamera = -cameraTransform.up;
+                Vector3 cameraPosition = cameraTransform.position;
+
+                Vector3 handPosition = cameraPosition + downFromCamera * noSteamVRFallbackHandDistFromCamera;
+                transform.position = handPosition;
+            }
+
+            transform.rotation = cameraTransform.rotation * Quaternion.Euler(noSteamVRFallbackHandRotationOffset);
+
         }
 
 
@@ -1084,6 +1248,8 @@ namespace Valve.VR.InteractionSystem
             float hoverUpdateBegin = ((otherHand != null) && (otherHand.GetInstanceID() < GetInstanceID())) ? (0.5f * hoverUpdateInterval) : (0.0f);
             InvokeRepeating("UpdateHovering", hoverUpdateBegin, hoverUpdateInterval);
             InvokeRepeating("UpdateDebugText", hoverUpdateBegin, hoverUpdateInterval);
+
+            onHandEnabledEvent.Invoke(this);
         }
 
 
@@ -1093,12 +1259,27 @@ namespace Valve.VR.InteractionSystem
             inputFocusAction.enabled = false;
 
             CancelInvoke();
+
+            onHandDisabledEvent.Invoke(this);
         }
 
 
         //-------------------------------------------------
         protected virtual void Update()
         {
+
+            if (currentAttachedObjectInfo != null && currentAttachedObjectInfo.Value.interactable != null) {
+                if (currentAttachedObjectInfo.Value.interactable.handFollowTransform) {
+                    if (mainRenderModel == null) {
+                        if (!NoVrCamera.NoVrEnabled) {
+                            Debug.LogError("mainRenderModel is null and it shouldn't be.");
+                        }
+                    } else {
+                        mainRenderModel.FollowTransformThisFrame(currentAttachedObjectInfo.Value.attachedOffsetTransform);
+                    }
+                }
+            }
+
             UpdateNoSteamVRFallback();
 
             GameObject attachedObject = currentAttachedObject;
@@ -1123,6 +1304,7 @@ namespace Valve.VR.InteractionSystem
 
         protected virtual void HandFollowUpdate()
         {
+            /*
             GameObject attachedObject = currentAttachedObject;
             if (attachedObject != null)
             {
@@ -1142,13 +1324,19 @@ namespace Valve.VR.InteractionSystem
 
                         if (pose == null)
                         {
-                            Quaternion offset = Quaternion.Inverse(this.transform.rotation) * currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation;
-                            targetHandRotation = currentAttachedObjectInfo.Value.interactable.transform.rotation * Quaternion.Inverse(offset);
 
-                            Vector3 worldOffset = (this.transform.position - currentAttachedObjectInfo.Value.handAttachmentPointTransform.position);
-                            Quaternion rotationDiff = mainRenderModel.GetHandRotation() * Quaternion.Inverse(this.transform.rotation);
-                            Vector3 localOffset = rotationDiff * worldOffset;
-                            targetHandPosition = currentAttachedObjectInfo.Value.interactable.transform.position + localOffset;
+                            //targetHandPosition = TargetItemPosition(currentAttachedObjectInfo.Value);
+                            //targetHandRotation = TargetItemRotation(currentAttachedObjectInfo.Value);
+                            targetHandPosition = currentAttachedObjectInfo.Value.handAttachmentPointTransform.position;
+                            targetHandRotation = currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation;
+
+                            //Quaternion offset = Quaternion.Inverse(this.transform.rotation) * currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation;
+                            //targetHandRotation = currentAttachedObjectInfo.Value.interactable.transform.rotation * Quaternion.Inverse(offset);
+
+                            //Vector3 worldOffset = (this.transform.position - currentAttachedObjectInfo.Value.handAttachmentPointTransform.position);
+                            //Quaternion rotationDiff = mainRenderModel.GetHandRotation() * Quaternion.Inverse(this.transform.rotation);
+                            //Vector3 localOffset = rotationDiff * worldOffset;
+                            //targetHandPosition = currentAttachedObjectInfo.Value.interactable.transform.position + localOffset;
                         }
                         else
                         {
@@ -1178,6 +1366,50 @@ namespace Valve.VR.InteractionSystem
                     }
                 }
             }
+            */
+        }
+
+        protected virtual void LateUpdate() {
+
+            if (NoVrCamera.NoVrEnabled) {
+                onHandTranslatedEvent.Invoke(transform);
+            }
+
+            /*
+            if (currentAttachedObjectInfo != null && currentAttachedObjectInfo.Value.interactable != null) {
+
+                if (currentAttachedObjectInfo.Value.interactable.handFollowTransform) {
+                    Quaternion targetHandRotation;
+                    Vector3 targetHandPosition;
+
+                    //targetHandPosition = TargetItemPosition(currentAttachedObjectInfo.Value);
+                    //targetHandRotation = TargetItemRotation(currentAttachedObjectInfo.Value);
+                    //targetHandPosition = currentAttachedObjectInfo.Value.handAttachmentPointTransform.position;
+                    //targetHandRotation = currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation;
+                    targetHandPosition = currentAttachedObjectInfo.Value.attachedOffsetTransform.position;
+                    targetHandRotation = currentAttachedObjectInfo.Value.attachedOffsetTransform.rotation;
+
+                    //Quaternion offset = Quaternion.Inverse(this.transform.rotation) * currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation;
+                    //targetHandRotation = currentAttachedObjectInfo.Value.interactable.transform.rotation * Quaternion.Inverse(offset);
+
+                    //Vector3 worldOffset = (this.transform.position - currentAttachedObjectInfo.Value.handAttachmentPointTransform.position);
+                    //Quaternion rotationDiff = mainRenderModel.GetHandRotation() * Quaternion.Inverse(this.transform.rotation);
+                    //Vector3 localOffset = rotationDiff * worldOffset;
+                    //targetHandPosition = currentAttachedObjectInfo.Value.interactable.transform.position + localOffset;
+
+
+                    if (mainRenderModel != null)
+                        mainRenderModel.SetHandRotation(targetHandRotation);
+                    if (hoverhighlightRenderModel != null)
+                        hoverhighlightRenderModel.SetHandRotation(targetHandRotation);
+
+                    if (mainRenderModel != null)
+                        mainRenderModel.SetHandPosition(targetHandPosition);
+                    if (hoverhighlightRenderModel != null)
+                        hoverhighlightRenderModel.SetHandPosition(targetHandPosition);
+                }
+            }
+            */
         }
 
         protected virtual void FixedUpdate()
@@ -1271,7 +1503,8 @@ namespace Valve.VR.InteractionSystem
             }
             else
             {
-                return currentAttachedObjectInfo.Value.handAttachmentPointTransform.TransformPoint(attachedObject.initialPositionalOffset);
+                //return currentAttachedObjectInfo.Value.handAttachmentPointTransform.TransformPoint(attachedObject.initialPositionalOffset);
+                return currentAttachedObjectInfo.Value.handAttachmentPointTransform.TransformPoint(attachedObject.PositionalOffset);
             }
         }
 
@@ -1284,7 +1517,8 @@ namespace Valve.VR.InteractionSystem
             }
             else
             {
-                return currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation * attachedObject.initialRotationalOffset;
+                //return currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation * attachedObject.initialRotationalOffset;
+                return currentAttachedObjectInfo.Value.handAttachmentPointTransform.rotation * attachedObject.RotationalOffset;
             }
         }
 
@@ -1329,7 +1563,7 @@ namespace Valve.VR.InteractionSystem
                 if (noSteamVRFallbackCamera)
                     angularTarget /= 10; //hacky fix for fallback
 
-                realNumbers &= true;
+                realNumbers &= true; //'Valve - What is this? Hahaha' - P3TE
             }
             else
                 angularTarget = Vector3.zero;
@@ -1424,6 +1658,9 @@ namespace Valve.VR.InteractionSystem
 
         public void TriggerHapticPulse(ushort microSecondsDuration)
         {
+            if (microSecondsDuration <= 0) {
+                return;
+            }
             float seconds = (float)microSecondsDuration / 1000000f;
             hapticAction.Execute(0, seconds, 1f / seconds, 1, handType);
         }
@@ -1452,32 +1689,17 @@ namespace Valve.VR.InteractionSystem
         {
             if (explicitType != GrabTypes.None)
             {
-                if (noSteamVRFallbackCamera)
-                {
-                    if (Input.GetMouseButtonDown(0))
-                        return explicitType;
-                    else
-                        return GrabTypes.None;
-                }
-
-                if (explicitType == GrabTypes.Pinch && grabPinchAction.GetStateDown(handType))
+                if (explicitType == GrabTypes.Pinch && VrInputRemapper.GetStateDown(grabPinchAction, handType))
                     return GrabTypes.Pinch;
-                if (explicitType == GrabTypes.Grip && grabGripAction.GetStateDown(handType))
+                if (explicitType == GrabTypes.Grip && VrInputRemapper.GetStateDown(grabGripAction, handType))
                     return GrabTypes.Grip;
             }
             else
             {
-                if (noSteamVRFallbackCamera)
-                {
-                    if (Input.GetMouseButtonDown(0))
-                        return GrabTypes.Grip;
-                    else
-                        return GrabTypes.None;
-                }
 
-                if (grabPinchAction != null && grabPinchAction.GetStateDown(handType))
+                if (VrInputRemapper.GetStateDown(grabPinchAction, handType))
                     return GrabTypes.Pinch;
-                if (grabGripAction != null && grabGripAction.GetStateDown(handType))
+                if (VrInputRemapper.GetStateDown(grabGripAction, handType))
                     return GrabTypes.Grip;
             }
 
@@ -1488,32 +1710,18 @@ namespace Valve.VR.InteractionSystem
         {
             if (explicitType != GrabTypes.None)
             {
-                if (noSteamVRFallbackCamera)
-                {
-                    if (Input.GetMouseButtonUp(0))
-                        return explicitType;
-                    else
-                        return GrabTypes.None;
-                }
 
-                if (explicitType == GrabTypes.Pinch && grabPinchAction.GetStateUp(handType))
+                if (explicitType == GrabTypes.Pinch && VrInputRemapper.GetStateUp(grabPinchAction, handType))
                     return GrabTypes.Pinch;
-                if (explicitType == GrabTypes.Grip && grabGripAction.GetStateUp(handType))
+                if (explicitType == GrabTypes.Grip && VrInputRemapper.GetStateUp(grabGripAction, handType))
                     return GrabTypes.Grip;
             }
             else
             {
-                if (noSteamVRFallbackCamera)
-                {
-                    if (Input.GetMouseButtonUp(0))
-                        return GrabTypes.Grip;
-                    else
-                        return GrabTypes.None;
-                }
 
-                if (grabPinchAction.GetStateUp(handType))
+                if (VrInputRemapper.GetStateUp(grabPinchAction, handType))
                     return GrabTypes.Pinch;
-                if (grabGripAction.GetStateUp(handType))
+                if (VrInputRemapper.GetStateUp(grabGripAction, handType))
                     return GrabTypes.Grip;
             }
 
@@ -1535,21 +1743,16 @@ namespace Valve.VR.InteractionSystem
 
         public bool IsGrabbingWithType(GrabTypes type)
         {
-            if (noSteamVRFallbackCamera)
-            {
-                if (Input.GetMouseButton(0))
-                    return true;
-                else
-                    return false;
-            }
 
             switch (type)
             {
                 case GrabTypes.Pinch:
-                    return grabPinchAction.GetState(handType);
+                    return VrInputRemapper.GetState(grabPinchAction, handType);
+                    //return grabPinchAction.GetState(handType);
 
                 case GrabTypes.Grip:
-                    return grabGripAction.GetState(handType);
+                    return VrInputRemapper.GetState(grabGripAction, handType);
+                    //return grabGripAction.GetState(handType);
 
                 default:
                     return false;
@@ -1558,21 +1761,16 @@ namespace Valve.VR.InteractionSystem
 
         public bool IsGrabbingWithOppositeType(GrabTypes type)
         {
-            if (noSteamVRFallbackCamera)
-            {
-                if (Input.GetMouseButton(0))
-                    return true;
-                else
-                    return false;
-            }
 
             switch (type)
             {
                 case GrabTypes.Pinch:
-                    return grabGripAction.GetState(handType);
+                    return VrInputRemapper.GetState(grabGripAction, handType);
+                    //return grabGripAction.GetState(handType);
 
                 case GrabTypes.Grip:
-                    return grabPinchAction.GetState(handType);
+                    return VrInputRemapper.GetState(grabPinchAction, handType);
+                    //return grabPinchAction.GetState(handType);
 
                 default:
                     return false;
@@ -1586,32 +1784,25 @@ namespace Valve.VR.InteractionSystem
 
         public GrabTypes GetBestGrabbingType(GrabTypes preferred, bool forcePreference = false)
         {
-            if (noSteamVRFallbackCamera)
-            {
-                if (Input.GetMouseButton(0))
-                    return preferred;
-                else
-                    return GrabTypes.None;
-            }
 
             if (preferred == GrabTypes.Pinch)
             {
-                if (grabPinchAction.GetState(handType))
+                if (VrInputRemapper.GetState(grabPinchAction, handType))
                     return GrabTypes.Pinch;
                 else if (forcePreference)
                     return GrabTypes.None;
             }
             if (preferred == GrabTypes.Grip)
             {
-                if (grabGripAction.GetState(handType))
+                if (VrInputRemapper.GetState(grabGripAction, handType))
                     return GrabTypes.Grip;
                 else if (forcePreference)
                     return GrabTypes.None;
             }
 
-            if (grabPinchAction.GetState(handType))
+            if (VrInputRemapper.GetState(grabPinchAction, handType))
                 return GrabTypes.Pinch;
-            if (grabGripAction.GetState(handType))
+            if (VrInputRemapper.GetState(grabGripAction, handType))
                 return GrabTypes.Grip;
 
             return GrabTypes.None;

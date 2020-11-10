@@ -14,7 +14,7 @@ namespace Valve.VR
     public class SteamVR_Render : MonoBehaviour
     {
         public SteamVR_ExternalCamera externalCamera;
-        public string externalCameraConfigPath = "externalcamera.cfg";
+        public string externalCameraConfigPath = "externalcamera-legacy.cfg";
 
         public static EVREye eye { get; private set; }
 

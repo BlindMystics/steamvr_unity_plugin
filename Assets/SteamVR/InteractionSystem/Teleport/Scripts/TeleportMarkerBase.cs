@@ -14,6 +14,31 @@ namespace Valve.VR.InteractionSystem
 		public bool locked = false;
 		public bool markerActive = true;
 
+        private bool _registered = false;
+
+        protected virtual void Awake() {
+            RegisterIfApplicable();
+        }
+
+        /// <summary>
+        /// Registers with the Teleport instance so that it can be updated correctly.
+        /// (If applicable).
+        /// </summary>
+        protected void RegisterIfApplicable() {
+            if (!Registered) {
+                Teleport.instance.RegesterTeleportMarker(this);
+            }
+        }
+
+        public bool Registered {
+            get {
+                return _registered;
+            }
+            set {
+                _registered = value;
+            }
+        }
+
 		//-------------------------------------------------
 		public virtual bool showReticle
 		{

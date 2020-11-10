@@ -17,6 +17,9 @@ namespace Valve.VR.InteractionSystem
         [Tooltip("Activates an action set on attach and deactivates on detach")]
         public SteamVR_ActionSet activateActionSetOnAttach;
 
+        [Tooltip("The priority of this action set. If you have two actions bound to the same input (button) the higher priority set will override the lower priority. If they are the same priority both will execute.")]
+        public int activationSetPriority = 0;
+
         [Tooltip("Hide the whole hand on attachment and show on detach")]
         public bool hideHandOnAttach = true;
 
@@ -114,7 +117,7 @@ namespace Valve.VR.InteractionSystem
             {
                 if (useHandObjectAttachmentPoint)
                 {
-                    //Debug.LogWarning("<b>[SteamVR Interaction]</b> SkeletonPose and useHandObjectAttachmentPoint both set at the same time. Ignoring useHandObjectAttachmentPoint.");
+                    Debug.LogError("<b>[SteamVR Interaction]</b> SkeletonPose and useHandObjectAttachmentPoint both set at the same time. Ignoring useHandObjectAttachmentPoint.");
                     useHandObjectAttachmentPoint = false;
                 }
             }
@@ -297,7 +300,7 @@ namespace Valve.VR.InteractionSystem
         protected virtual void OnAttachedToHand(Hand hand)
         {
             if (activateActionSetOnAttach != null)
-                activateActionSetOnAttach.Activate(hand.handType);
+                activateActionSetOnAttach.Activate(hand.handType, activationSetPriority);
 
             if (onAttachedToHand != null)
             {
@@ -345,8 +348,10 @@ namespace Valve.VR.InteractionSystem
 
             if (attachedToHand != null)
             {
+                if (attachedToHand.skeleton != null) {
+                    attachedToHand.skeleton.BlendToSkeleton(0.1f);
+                }
                 attachedToHand.DetachObject(this.gameObject, false);
-                attachedToHand.skeleton.BlendToSkeleton(0.1f);
             }
 
             if (highlightHolder != null)

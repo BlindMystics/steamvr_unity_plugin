@@ -26,8 +26,10 @@ namespace Valve.VR.InteractionSystem
 		private bool highlighted = false;
 
 		//-------------------------------------------------
-		public void Awake()
+		protected override void Awake()
 		{
+            base.Awake();
+
 			areaMesh = GetComponent<MeshRenderer>();
 
 #if UNITY_URP

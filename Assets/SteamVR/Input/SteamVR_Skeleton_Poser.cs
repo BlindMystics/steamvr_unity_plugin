@@ -225,6 +225,11 @@ namespace Valve.VR
             // apply blending for each behaviour
             for (int behaviourIndex = 0; behaviourIndex < blendingBehaviours.Count; behaviourIndex++)
             {
+                if (blendingBehaviours[behaviourIndex].action_bool.GetSourceMap() == null) {
+                    //A bit of a hack to bypass a strange issue I'm having, see the Blind Mystics trello...
+                    continue;
+                }
+
                 blendingBehaviours[behaviourIndex].Update(Time.deltaTime, inputSource);
                 // if disabled or very low influence, skip for perf
                 if (blendingBehaviours[behaviourIndex].enabled && blendingBehaviours[behaviourIndex].influence * blendingBehaviours[behaviourIndex].value > 0.01f)

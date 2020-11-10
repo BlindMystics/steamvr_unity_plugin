@@ -64,8 +64,10 @@ namespace Valve.VR.InteractionSystem
 
 
 		//-------------------------------------------------
-		void Awake()
+		protected override void Awake()
 		{
+            base.Awake();
+
 			GetRelevantComponents();
 
 			animation = GetComponent<Animation>();
