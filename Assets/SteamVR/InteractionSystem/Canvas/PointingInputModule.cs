@@ -88,6 +88,10 @@ namespace Valve.VR.InteractionSystem {
                     currentInteractionHandler.ShowPointer(true);
                 }
                 if (currentInteractionHandler.CurrentCanvas == null) {
+                    //Check if the interaction button has been released while outside of the canvas area.
+                    if (currentInteractionHandler.InteractionButtonReleased) {
+                        OnPointerInteractionButtonReleased(currentInteractionHandler.PointerEventData);
+                    }
                     return;
                 } else {
                     currentInteractionHandler.ClaimCanvas();
@@ -121,42 +125,7 @@ namespace Valve.VR.InteractionSystem {
                 }
 
                 if (currentInteractionHandler.InteractionButtonReleased) {
-                    currentPointerEventData.dragging = false;
-
-                    if (currentPointerEventData.pointerDrag != null) {
-                        ExecuteEvents.Execute(currentPointerEventData.pointerDrag, currentPointerEventData, ExecuteEvents.endDragHandler);
-                        if (currentInteractionHandler.CurrentGameObject != null) {
-                            ExecuteEvents.ExecuteHierarchy(currentInteractionHandler.CurrentGameObject, currentPointerEventData, ExecuteEvents.dropHandler);
-                        }
-                        currentPointerEventData.pointerDrag = null;
-                    }
-
-                    if (currentPointerEventData.pointerPress != null) {
-
-                        bool shouldReleaseOriginal = false;
-
-                        if (currentInteractionHandler.CurrentGameObject != null) {
-                            //Make sure that we're releasing the same object that we pressed.
-                            GameObject eventHandler = ExecuteEvents.GetEventHandler<IPointerDownHandler>(currentInteractionHandler.CurrentGameObject);
-                            if (eventHandler == currentPointerEventData.pointerPress) {
-                                ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerClickHandler);
-                                ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
-                            } else {
-                                shouldReleaseOriginal = true;
-                            }
-                        } else {
-                            shouldReleaseOriginal = true;
-                        }
-
-                        if (shouldReleaseOriginal) {
-                            ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
-                            ClearSelection();
-                        }
-
-                        currentPointerEventData.rawPointerPress = null;
-                        currentPointerEventData.pointerPress = null;
-
-                    }
+                    OnPointerInteractionButtonReleased(currentPointerEventData);
                 }
 
                 if (currentPointerEventData.dragging) {
@@ -165,6 +134,44 @@ namespace Valve.VR.InteractionSystem {
             }
 
             handleKeyboard();
+        }
+
+        private void OnPointerInteractionButtonReleased(PointerEventData currentPointerEventData) {
+            currentPointerEventData.dragging = false;
+
+            if (currentPointerEventData.pointerDrag != null) {
+                ExecuteEvents.Execute(currentPointerEventData.pointerDrag, currentPointerEventData, ExecuteEvents.endDragHandler);
+                if (currentInteractionHandler.CurrentGameObject != null) {
+                    ExecuteEvents.ExecuteHierarchy(currentInteractionHandler.CurrentGameObject, currentPointerEventData, ExecuteEvents.dropHandler);
+                }
+                currentPointerEventData.pointerDrag = null;
+            }
+
+            if (currentPointerEventData.pointerPress != null) {
+
+                bool shouldReleaseOriginal = false;
+
+                if (currentInteractionHandler.CurrentGameObject != null) {
+                    //Make sure that we're releasing the same object that we pressed.
+                    GameObject eventHandler = ExecuteEvents.GetEventHandler<IPointerDownHandler>(currentInteractionHandler.CurrentGameObject);
+                    if (eventHandler == currentPointerEventData.pointerPress) {
+                        ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerClickHandler);
+                        ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
+                    } else {
+                        shouldReleaseOriginal = true;
+                    }
+                } else {
+                    shouldReleaseOriginal = true;
+                }
+
+                if (shouldReleaseOriginal) {
+                    ExecuteEvents.Execute(currentPointerEventData.pointerPress, currentPointerEventData, ExecuteEvents.pointerUpHandler);
+                    ClearSelection();
+                }
+
+                currentPointerEventData.rawPointerPress = null;
+                currentPointerEventData.pointerPress = null;
+            }
         }
 
         private void handleKeyboard() {

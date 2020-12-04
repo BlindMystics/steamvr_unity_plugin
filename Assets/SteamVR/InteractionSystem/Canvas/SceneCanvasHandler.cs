@@ -1,7 +1,5 @@
 ﻿using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using System.Collections.Generic;
 
 namespace Valve.VR.InteractionSystem {
     public class SceneCanvasHandler : MonoBehaviour {
